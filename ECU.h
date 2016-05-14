@@ -10,10 +10,11 @@
 struct ECU
 {
   ECU();
+  ~ECU();
 
   static void Iterrupt_Injector_Change();
   
-  void run();
+  bool run();
 
   void calculate_target_RPM( unsigned long aNow );
   
@@ -27,7 +28,9 @@ struct ECU
   Injector _injector;
 
   Average< unsigned short > _rpm_average;
-  
+  Average< unsigned char > _ison_average;
+
+  bool _do_Shutdown;
   short _rpm;
   short _rpm_target;
 

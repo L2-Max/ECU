@@ -49,3 +49,4 @@ T Average< T >::average()const
 }
 
 template class Average< unsigned short >;
+template class Average< unsigned char >;
