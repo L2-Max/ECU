@@ -17,8 +17,10 @@ struct Injector
 
   void read();
 
-  Periods read_periods();
-  Periods read_periods_on();
+  const Periods& read_periods();
+  const Periods& read_periods_on();
+
+  static const Periods& read_periods( Periods& aPeriods, Periods& aLast );
 
   bool _is_On;
 
@@ -26,6 +28,7 @@ struct Injector
   volatile bool _slot_periods_on;
 
   Periods _private_periods;
+  Periods _private_periods_on;
   
   Periods _periods[ 2 ];
   Periods _periods_on[ 2 ];

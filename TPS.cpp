@@ -4,10 +4,10 @@
 
 #define PIN_TPS A0
 
-#define TPS_SAMPLING_MS 100
-#define TPS_VALUE_CLOSED 600.
+#define TPS_SAMPLING_MS 100000
+#define TPS_VALUE_CLOSED 570.
 
-TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 13 )
+TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 5 )
 {
   pinMode( PIN_TPS, INPUT );
 }
@@ -37,17 +37,19 @@ unsigned long TPS::read_Vcc()
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   #endif  
 
-  delay( 2 ); // Wait for Vref to settle
-  ADCSRA |= _BV( ADSC ); // Start conversion
-  while( bit_is_set( ADCSRA, ADSC ) ); // measuring
+  delay( 2 );
+  
+  ADCSRA |= _BV( ADSC );
+  
+  while( bit_is_set( ADCSRA, ADSC ) );
 
-  uint8_t low( ADCL ); // must read ADCL first - it then locks ADCH  
-  uint8_t high( ADCH ); // unlocks both
+  uint8_t low( ADCL );
+  uint8_t high( ADCH );
 
   unsigned long ret( ( high << 8 ) | low );
 
-  ret = 1125300L / ret; // Calculate Vcc (in mV); 1125300 = 1.1*1023*1000
+  ret = ( 1125300L / ret );
   
-  return ret; // Vcc in millivolts
+  return ret;
 }
   

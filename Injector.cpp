@@ -11,8 +11,11 @@ Injector::Injector( ECU& anEcu ) :
    _ecu( anEcu ), _is_On( false ), _slot_periods( false ), _slot_periods_on( false ), _state( 0 )
 {
   memset( &_private_periods, 0, sizeof( _private_periods ) );
+  memset( &_private_periods_on, 0, sizeof( _private_periods_on ) );
+  
   memset( _periods, 0, sizeof( _periods ) );
   memset( _periods_on, 0, sizeof( _periods_on ) );
+  
   memset( &_last_periods, 0, sizeof( _last_periods ) );
   memset( &_last_periods_on, 0, sizeof( _last_periods_on ) );
   
@@ -43,54 +46,53 @@ void Injector::read()
     if( !_is_On )
     {
       _private_periods._usecs = micros();
-      
       ++_private_periods._count;
 
       _periods[ _slot_periods ] = _private_periods;
     }
     else
     {
-      _periods_on[ _slot_periods_on ]._usecs += ( micros() - _periods[ _slot_periods ]._usecs );
+      _private_periods_on._usecs += ( micros() - _periods[ _slot_periods ]._usecs );
+      ++_private_periods_on._count;
       
-      ++_periods_on[ _slot_periods_on ]._count;
+      _periods_on[ _slot_periods_on ] = _private_periods_on;
     }
 
     _is_On = !_is_On;
-
-    _ecu._is_Running = true;
   }
 }
 
-Periods Injector::read_periods()
+const Periods& Injector::read_periods()
 {
-  Periods ret;
-  
   _slot_periods = !_slot_periods;
   
-  Periods thePeriods( _periods[ !_slot_periods ] );
-
-  ret._usecs = ( thePeriods._usecs - _last_periods._usecs );
-  ret._count = ( thePeriods._count - _last_periods._count );
-
-  _last_periods = thePeriods;
-
-  return ret;
+  return read_periods( _periods[ !_slot_periods ], _last_periods );
 }
 
-Periods Injector::read_periods_on()
+const Periods& Injector::read_periods_on()
 {
-  Periods ret;
-  
-  _slot_periods_on = !_slot_periods_on;
-  
-  Periods thePeriods( _periods_on[ !_slot_periods_on ] );
+  return read_periods( _periods_on[ !_slot_periods_on ], _last_periods_on );
+}
 
-  ret._usecs = ( thePeriods._usecs - _last_periods_on._usecs );
-  ret._count = ( thePeriods._count - _last_periods_on._count );
+const Periods& Injector::read_periods( Periods& aPeriods, Periods& aLast )
+{
+  static Periods ret;
+  
+  if( aLast._count )
+  {
+     ret._usecs = ( aPeriods._usecs - aLast._usecs );
+     ret._count = ( aPeriods._count - aLast._count );
+  }
+  else
+  {
+    ret._usecs = 0;
+    ret._count = 0;
+  }
 
-  _last_periods_on = thePeriods;
+  aLast = aPeriods;
+
+  memset( &aPeriods, 0, sizeof( aPeriods ) );
 
   return ret;
 }
 
-  
