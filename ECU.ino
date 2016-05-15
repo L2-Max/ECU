@@ -24,8 +24,6 @@ void setup()
 //    EEPROM.write( i, 0 );
   }
   
-  g_ECU = new ECU();
-  
   g_lcd.begin(16,2);
 
   g_lcd.home ();
@@ -47,6 +45,11 @@ unsigned long g_Cycles( 0 );
 
 void loop()
 {
+  if( !g_ECU )
+  {
+    g_ECU = new ECU();
+  }
+  
   for(;;)
   {
     unsigned long theNow( millis() );
@@ -95,9 +98,6 @@ void loop()
       Serial.print( " stg" );
       Serial.print( g_ECU->_iac._steps_ToGo );
 
-      Serial.print( " avg: " );
-      Serial.print( g_ECU->_ison_average.average() );
-      
       Serial.println();
 
       g_Cycles = 0;
@@ -109,22 +109,25 @@ void loop()
   delay( 1000 );
   
   delete g_ECU;
+  g_ECU = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 5 ), _last_rpm_change_usecs( 0 ), _do_Shutdown( false ), _ison_average( 15 )
+  _rpm_average( 3 ), _last_rpm_change_usecs( 0 ), _do_Shutdown( false ), _ison_average( 30 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
-  digitalWrite( ECU_POWER_PIN, HIGH );
+  //digitalWrite( ECU_POWER_PIN, HIGH );
   
   attachInterrupt( digitalPinToInterrupt( PIN_INJECTOR ), ECU::Iterrupt_Injector_Change, CHANGE );
+
+  _ison_average.push( 100 );
 }
 
 ECU::~ECU()
 {
-  digitalWrite( ECU_POWER_PIN, LOW );
+  //digitalWrite( ECU_POWER_PIN, LOW );
 }
 
 void ECU::Iterrupt_Injector_Change()
@@ -149,9 +152,11 @@ bool ECU::run()
     
     if( !_do_Shutdown && !_ison_average.average() )
     {
-      _do_Shutdown = true;
+      //_do_Shutdown = true;
 
-      _iac.reset();
+      //_iac.reset();
+
+      //Serial.println( "Reseting .." );
     }
 
     if( _do_Shutdown )
@@ -211,7 +216,7 @@ void ECU::read_RPM( unsigned long aNow )
   }
   else
   {
-    _rpm_average.push( 0 );
+    _rpm_average.push( _rpm );
   }
 
   _rpm = _rpm_average.average();

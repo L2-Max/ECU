@@ -20,12 +20,15 @@
 #define IAC_STARTUP_POS_ADDR 2
 
 IAC::IAC( ECU& anECU ) :
-  _ecu( anECU ), _pos( 1000 ), _steps_ToGo( 0 ),
+  _ecu( anECU ), _pos( IAC_MAX_STEPS ), _steps_ToGo( 0 ),
   _last_control( 0 ), _last_step( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
   _last_target_rpm( 0 ), _stepper( 2100, 11, 9, 10, 8 ), _is_Reset( false ), _is_SetStartPos( false )
 {
   //_stepper.moveTo( -IAC_MAX_STEPS );
   _stepper.setSpeed( 12 );
+
+  _stepper.step( -IAC_MAX_STEPS );
+  _stepper.step( 1000 );
 
   //EEPROM.get( IAC_CURR_POS_ADDR, _pos );
 }

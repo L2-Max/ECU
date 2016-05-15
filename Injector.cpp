@@ -71,6 +71,8 @@ const Periods& Injector::read_periods()
 
 const Periods& Injector::read_periods_on()
 {
+  _slot_periods_on = !_slot_periods_on;
+  
   return read_periods( _periods_on[ !_slot_periods_on ], _last_periods_on );
 }
 
@@ -78,7 +80,7 @@ const Periods& Injector::read_periods( Periods& aPeriods, Periods& aLast )
 {
   static Periods ret;
   
-  if( aLast._count )
+  if( aPeriods._count && aPeriods._usecs )
   {
      ret._usecs = ( aPeriods._usecs - aLast._usecs );
      ret._count = ( aPeriods._count - aLast._count );
@@ -91,7 +93,8 @@ const Periods& Injector::read_periods( Periods& aPeriods, Periods& aLast )
 
   aLast = aPeriods;
 
-  memset( &aPeriods, 0, sizeof( aPeriods ) );
+  aPeriods._count = 0;
+  aPeriods._usecs = 0;
 
   return ret;
 }

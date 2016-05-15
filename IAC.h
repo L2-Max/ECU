@@ -4,7 +4,7 @@
 //#include <AccelStepper.h>
 #include <Stepper.h>
 
-#define ECU_IDLE_RPM 950
+#define ECU_IDLE_RPM 1000
 #define ECU_STARTUP_RPM 1800
 #define ECU_RPM_TOLERANCE 25
 
