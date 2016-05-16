@@ -4,10 +4,10 @@
 
 #define PIN_TPS A0
 
-#define TPS_SAMPLING_MS 50000
-#define TPS_VALUE_CLOSED 480.
+#define TPS_SAMPLING_MS 100000
+#define TPS_VALUE_CLOSED 490.
 
-TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 10 )
+TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 3 )
 {
   pinMode( PIN_TPS, INPUT );
   //pinMode( A1, INPUT );
@@ -21,7 +21,7 @@ void TPS::read( unsigned long aNow )
     _last_sample = aNow;
 
     _value_average.push( analogRead( PIN_TPS ) / 1023. * read_Vcc() );
-    _value = 0;//_value_average.average();
+    _value = _value_average.average();
 
     _isOpen = ( _value > TPS_VALUE_CLOSED );
   }

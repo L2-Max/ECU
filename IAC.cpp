@@ -5,30 +5,29 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-#define IAC_MAX_STEPS 2000.
+#define IAC_MAX_STEPS 5000.
 
-#define IAC_CONTROL_US 100000
-
-#define IAC_RPM_LOW_THRESHOLD 500.
-#define IAC_RPM_HIGH_THRESHOLD 2000.
+#define IAC_CONTROL_US 200000
 
 #define IAC_ERROR_MAX 50
-#define IAC_I_MAX 100
-#define IAC_D_MAX 100
+#define IAC_I_MAX 50
+#define IAC_D_MAX 50
+
+#define IAC_START_POS 700
+#define IAC_SPEED 700
 
 #define IAC_CURR_POS_ADDR 0
 #define IAC_STARTUP_POS_ADDR 2
 
 IAC::IAC( ECU& anECU ) :
-  _ecu( anECU ), _pos( IAC_MAX_STEPS ), _steps_ToGo( 0 ),
-  _last_control( 0 ), _last_step( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
-  _last_target_rpm( 0 ), _stepper( 2100, 11, 9, 10, 8 ), _is_Reset( false ), _is_SetStartPos( false )
+  _ecu( anECU ), _last_control( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
+  _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 8, 10, 9, 11 ),
+  _state( sReady )
 {
-  //_stepper.moveTo( -IAC_MAX_STEPS );
-  _stepper.setSpeed( 12 );
+  _stepper.setMaxSpeed( 2000. );
+  _stepper.setAcceleration( 1000. );
 
-  _stepper.step( -IAC_MAX_STEPS );
-  _stepper.step( 1000 );
+  step( -1000 );
 
   //EEPROM.get( IAC_CURR_POS_ADDR, _pos );
 }
@@ -40,124 +39,93 @@ IAC::~IAC()
 
 void IAC::step( short aSteps )
 {
-  _steps_ToGo = aSteps;
-
-  if( ( _pos + _steps_ToGo ) > IAC_MAX_STEPS )
+  /*if( ( _stepper.currentPosition() + aSteps ) > IAC_MAX_STEPS )
   {
-    _steps_ToGo = ( IAC_MAX_STEPS - _pos );
+    _stepper.move( IAC_MAX_STEPS - _stepper.currentPosition() );
   }
-  else if( ( _pos + _steps_ToGo ) < 0 )
+  else if( ( _stepper.currentPosition() + aSteps ) < 0 )
   {
-    _steps_ToGo = -_pos;
+    _stepper.move( -_stepper.currentPosition() );
+  }
+  else*/
+  {
+    _stepper.move( aSteps );
   }
   
-  //_stepper.setSpeed( 700. );
+  _stepper.setSpeed( IAC_SPEED );
 }
 
 void IAC::control_RPM( unsigned long aNow )
 {
-  if( !_is_Reset )
+  if( _state == sReady )
   {
     if( ( aNow - _last_control ) >= ( IAC_CONTROL_US ) )
     {
-      if( !_ecu._tps._isOpen )
+      if( _ecu._state == ECU::sIdling )
       {
-        if( /*_ecu._rpm >= IAC_RPM_LOW_THRESHOLD && */ _ecu._rpm <= IAC_RPM_HIGH_THRESHOLD )
+        short theError( ( _ecu._rpm_target - _ecu._rpm ) );
+
+        if( theError > IAC_ERROR_MAX )
         {
-          short theSteps( 0 );
-          
-          if( _ecu.isRunning() /*&& _ecu._rpm_target == ECU_IDLE_RPM &&
-              _ecu._rpm > ( ECU_IDLE_RPM - 200 ) && _ecu._rpm < ( ECU_IDLE_RPM + 200 )*/ )
-          {
-            short theError( ( _ecu._rpm_target - _ecu._rpm ) / 
-                            ( ( IAC_RPM_HIGH_THRESHOLD - IAC_RPM_LOW_THRESHOLD ) / IAC_MAX_STEPS ) );
-  
-            if( theError > IAC_ERROR_MAX )
-            {
-              theError = IAC_ERROR_MAX;
-            }
-            else if( theError < -IAC_ERROR_MAX )
-            {
-              theError = -IAC_ERROR_MAX;
-            }
-    
-            _integral += theError * ( float( aNow - _last_control ) / 1000000.  );
-            _derivative = ( theError - _last_error ) / ( float( aNow - _last_control ) / 1000000. );
-    
-            if( _integral > IAC_I_MAX )
-            {
-              _integral = IAC_I_MAX;
-            }
-            else if( _integral < -IAC_I_MAX )
-            {
-              _integral = -IAC_I_MAX;
-            }
-    
-            if( _derivative > IAC_D_MAX )
-            {
-              _derivative = IAC_D_MAX;
-            }
-            else if( _derivative < -IAC_D_MAX )
-            {
-              _derivative = -IAC_D_MAX;
-            }
-    
-            theSteps = ( _Kp * theError + _Ki * _integral + _Kd * _derivative );
-    
-            _last_error = theError;
-          }
-  
-          step( theSteps );
+          theError = IAC_ERROR_MAX;
         }
+        else if( theError < -IAC_ERROR_MAX )
+        {
+          theError = -IAC_ERROR_MAX;
+        }
+
+        _integral += theError * ( float( aNow - _last_control ) / 1000000.  );
+        _derivative = ( theError - _last_error ) / ( float( aNow - _last_control ) / 1000000. );
+
+        if( _integral > IAC_I_MAX )
+        {
+          _integral = IAC_I_MAX;
+        }
+        else if( _integral < -IAC_I_MAX )
+        {
+          _integral = -IAC_I_MAX;
+        }
+
+        if( _derivative > IAC_D_MAX )
+        {
+          _derivative = IAC_D_MAX;
+        }
+        else if( _derivative < -IAC_D_MAX )
+        {
+          _derivative = -IAC_D_MAX;
+        }
+
+        step( _Kp * theError + _Ki * _integral + _Kd * _derivative );
+
+        _last_error = theError;
       }
   
       _last_control = aNow;
     }
   }
   
-  if( ( aNow - _last_step ) >= 2400 )
+  if( !_stepper.distanceToGo() )
   {
-    _last_step = aNow;
-    
-    if( _steps_ToGo > 0 )
+    if( _state == sResetting )
     {
-       _stepper.step( 1 );
+      _state = sSetting;
 
-       --_steps_ToGo;
-       ++_pos;
+      //step( IAC_START_POS );
     }
-    else if( _steps_ToGo < 0 )
+    else if( _state == sSetting )
     {
-      _stepper.step( -1 );
-
-       ++_steps_ToGo;
-       --_pos;
-    }
-    else
-    {
-      if( _is_Reset )
-      {
-        if( !_is_SetStartPos )
-        {
-          _is_SetStartPos = true;
-
-          step( 1000 );
-        }
-        else
-        {
-           _is_Reset = false;
-        }
-      }
+      _state = sReady;
     }
   }
-  
-  //_stepper.runSpeedToPosition();
+
+  _stepper.runSpeedToPosition();
 }
 
 void IAC::reset()
 {
-  _is_Reset = true;
+  _state = sResetting;
 
-  step( -IAC_MAX_STEPS );
+  //_stepper.move( -500 );
+  //_stepper.setSpeed( IAC_SPEED );
 }
 

@@ -3,9 +3,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
-#define ECU_SAMPLING_US 250000
+#define ECU_SAMPLING_US 100000
 
-#define DISPLAY_INTERVAL 250
+#define DISPLAY_INTERVAL 300
 
 #define ECU_POWER_PIN 4
 
@@ -87,16 +87,13 @@ void loop()
       Serial.print( g_ECU->_rpm_target );
 
       Serial.print( " p" );
-      Serial.print( static_cast< short >( g_ECU->_iac._pos ) );
+      Serial.print( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
 
-      Serial.print( " l" );
-      Serial.print( ( g_ECU->_tps._isOpen ? "O" : "C" ) );
-
-      Serial.print( " v" );
+      Serial.print( " tps" );
       Serial.print( g_ECU->_tps._value );
 
-      Serial.print( " stg" );
-      Serial.print( g_ECU->_iac._steps_ToGo );
+      Serial.print( " s" );
+      Serial.print( g_ECU->_state );
 
       Serial.println();
 
@@ -106,28 +103,27 @@ void loop()
     ++g_Cycles;
   }
 
-  delay( 1000 );
-  
   delete g_ECU;
   g_ECU = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
+#define ECU_IDLE_RPM 1000
+#define ECU_STARTUP_RPM 1500
+#define ECU_RPM_TOLERANCE 25
+
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 3 ), _last_rpm_change_usecs( 0 ), _do_Shutdown( false ), _ison_average( 30 )
+  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sInitial ), _rpm_zero_counter( 0 ), _last_tps_state( _tps._isOpen )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
-  //digitalWrite( ECU_POWER_PIN, HIGH );
   
   attachInterrupt( digitalPinToInterrupt( PIN_INJECTOR ), ECU::Iterrupt_Injector_Change, CHANGE );
-
-  _ison_average.push( 100 );
 }
 
 ECU::~ECU()
 {
-  //digitalWrite( ECU_POWER_PIN, LOW );
+  digitalWrite( ECU_POWER_PIN, LOW );
 }
 
 void ECU::Iterrupt_Injector_Change()
@@ -148,23 +144,92 @@ bool ECU::run()
 
     calculate_target_RPM( theNow );
 
-    _ison_average.push( isRunning() || ( digitalRead( PIN_INJECTOR ) == HIGH ) );
-    
-    if( !_do_Shutdown && !_ison_average.average() )
+    if( _state == sInitial )
     {
-      //_do_Shutdown = true;
-
-      //_iac.reset();
-
-      //Serial.println( "Reseting .." );
-    }
-
-    if( _do_Shutdown )
-    {
-      if( !_iac._is_Reset )
+      if( _rpm )
       {
-        ret = false;
+        if( _rpm > ECU_STARTUP_RPM )
+        {
+           _state = sStarting;
+        }
+        else
+        {
+          _iac.step( 100 );
+        }
       }
+    }
+    else if( _state == sStarting )
+    {
+      digitalWrite( ECU_POWER_PIN, HIGH );
+
+      if( _rpm )
+      {
+        if( _rpm >= ( ECU_IDLE_RPM - 500 ) && _rpm <= ( ECU_IDLE_RPM + 200 ) )
+        {
+          _state = sIdling;
+        }
+        else
+        {
+          _iac.step( -100 );
+        }
+      }
+      else
+      {
+        _state = sShutDown;
+      }
+    }
+    else if( _state == sRunning || _state == sIdling )
+    {
+      if( _rpm )
+      {
+        if( !_tps._isOpen )
+        {
+          if( _rpm >= ( ECU_IDLE_RPM - 500 ) && _rpm <= ( ECU_IDLE_RPM + 200 ) )
+          {
+            _state = sIdling;
+          }
+
+          if( _last_tps_state != _tps._isOpen )
+          {
+            if( _state == sRunning )
+            {
+              _iac.step( -50 );
+            }
+          }
+        }
+        else if( _tps._isOpen )
+        {
+          _state = sRunning;
+
+          if( _last_tps_state != _tps._isOpen )
+          {
+            _iac.step( 300 );
+          }
+        }
+
+        _last_tps_state = _tps._isOpen;
+      }
+      else
+      {
+        _state = sShutDown;
+      }
+    }
+    else if( _state == sShutDown )
+    {
+      _state = sWait;
+      
+      _iac.reset();
+    }
+    else if( _state == sWait )
+    {
+      if( _iac._state == IAC::sReady )
+      {
+        _state = sFinish;
+      }
+    }
+    else if( _state == sFinish )
+    {
+      ret = false;
     }
     
     _last_sample_usecs = theNow;
@@ -178,13 +243,13 @@ bool ECU::run()
 
 void ECU::calculate_target_RPM( unsigned long aNow )
 {
-  if( isRunning() )
+  /*if( _state == sRunning )
   {
     if( ( aNow - _last_rpm_change_usecs ) > 1000000 * 5 )
     {
       _last_rpm_change_usecs = aNow;
       
-      _rpm_target -= 1000;
+      _rpm_target -= 100;
 
       if( _rpm_target < ( ECU_IDLE_RPM + 25 ) )
       {
@@ -200,7 +265,7 @@ void ECU::calculate_target_RPM( unsigned long aNow )
   else
   {
     _rpm_target = ECU_STARTUP_RPM;
-  }
+  }*/
 }
 
 void ECU::read_RPM( unsigned long aNow )
@@ -209,17 +274,18 @@ void ECU::read_RPM( unsigned long aNow )
   
   if( thePeriods._count )
   {
-    unsigned short theRpm( ( aNow - _last_sample_usecs ) * 60. /
-                             thePeriods._usecs * thePeriods._count / ( ECU_SAMPLING_US / 1000000. ) / 4. );
+    unsigned short theRpm( ( aNow - _last_sample_usecs ) * 30. /
+                             thePeriods._usecs * thePeriods._count / ( ECU_SAMPLING_US / 1000000. ) );
 
     _rpm_average.push( theRpm );
-  }
-  else
-  {
-    _rpm_average.push( _rpm );
-  }
+    _rpm = _rpm_average.average();
 
-  _rpm = _rpm_average.average();
+    _rpm_zero_counter = ( 1000000 / ECU_SAMPLING_US / 2 );
+  }
+  else if( !--_rpm_zero_counter )
+  {
+    _rpm = 0;
+  }
 }
 
 void ECU::read_Fueling( unsigned long aNow )
@@ -229,10 +295,5 @@ void ECU::read_Fueling( unsigned long aNow )
   if( thePeriods._count )
   {
   }
-}
-
-bool ECU::isRunning()const
-{
-  return _rpm;
 }
 

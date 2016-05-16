@@ -1,17 +1,20 @@
 #ifndef __IAC_H__
 #define __IAC_H__
 
-//#include <AccelStepper.h>
-#include <Stepper.h>
-
-#define ECU_IDLE_RPM 1000
-#define ECU_STARTUP_RPM 1800
-#define ECU_RPM_TOLERANCE 25
+#include <AccelStepper.h>
+//#include <Stepper.h>
 
 struct ECU;
 
 struct IAC
 {
+  enum EState
+  {
+    sReady,
+    sResetting,
+    sSetting
+  };
+  
   IAC( ECU& anECU );
   ~IAC();
 
@@ -21,17 +24,13 @@ struct IAC
 
   ECU& _ecu;
   
-  Stepper _stepper;
+  AccelStepper _stepper;
 
-  bool _is_Reset;
-  bool _is_SetStartPos;
-
-  short _pos;
-  short _steps_ToGo;
-
+  EState _state;
+  
   const float _Kp = 1;
-  const float _Ki = .0;
-  const float _Kd = .8;
+  const float _Ki = .1;
+  const float _Kd = .3;
 
   short _last_target_rpm;
   short _last_error;
@@ -39,7 +38,6 @@ struct IAC
   short _derivative;
 
   unsigned long _last_control;
-  unsigned long _last_step;
 };
 
 #endif

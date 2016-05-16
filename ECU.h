@@ -9,6 +9,17 @@
 
 struct ECU
 {
+  enum E_State
+  {
+    sInitial,
+    sStarting,
+    sIdling,
+    sRunning,
+    sShutDown,
+    sWait,
+    sFinish
+  };
+  
   ECU();
   ~ECU();
 
@@ -21,21 +32,21 @@ struct ECU
   void read_RPM( unsigned long aNow );
   void read_Fueling( unsigned long aNow );
 
-  bool isRunning()const;
-
   IAC _iac;
   TPS _tps;
   Injector _injector;
 
-  Average< unsigned short > _rpm_average;
-  Average< unsigned char > _ison_average;
+  E_State _state;
 
-  bool _do_Shutdown;
+  Average< unsigned short > _rpm_average;
+
   short _rpm;
   short _rpm_target;
+  unsigned char _rpm_zero_counter;
 
   unsigned char _startup_timer;
 
+  bool _last_tps_state;
   unsigned long _last_sample_usecs;
   unsigned long _last_rpm_change_usecs;
 };
