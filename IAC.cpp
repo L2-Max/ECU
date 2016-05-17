@@ -7,7 +7,7 @@
 
 #define IAC_MAX_STEPS 5000.
 
-#define IAC_CONTROL_US 200000
+#define IAC_CONTROL_MS 200.
 
 #define IAC_ERROR_MAX 50
 #define IAC_I_MAX 50
@@ -49,11 +49,11 @@ void IAC::step( short aSteps )
   _stepper.setSpeed( IAC_SPEED );
 }
 
-void IAC::control_RPM( unsigned long aNow )
+void IAC::control_RPM( unsigned long aNow_MS )
 {
-  if( _state == sReady )
+  if( aNow_MS >= _last_control )
   {
-    if( ( aNow - _last_control ) >= ( IAC_CONTROL_US ) )
+    if( _state == sReady )
     {
       if( _ecu._state == ECU::sIdling )
       {
@@ -68,8 +68,8 @@ void IAC::control_RPM( unsigned long aNow )
           theError = -IAC_ERROR_MAX;
         }
 
-        _integral += theError * ( float( aNow - _last_control ) / 1000000.  );
-        _derivative = ( theError - _last_error ) / ( float( aNow - _last_control ) / 1000000. );
+        _integral += theError * ( float( aNow_MS - _last_control ) / IAC_CONTROL_MS  );
+        _derivative = ( theError - _last_error ) / ( float( aNow_MS - _last_control ) / IAC_CONTROL_MS );
 
         if( _integral > IAC_I_MAX )
         {
@@ -93,11 +93,14 @@ void IAC::control_RPM( unsigned long aNow )
 
         _last_error = theError;
       }
-  
-      _last_control = aNow;
     }
+    
+    _last_control = ( aNow_MS + IAC_CONTROL_MS );
   }
-  
+}
+
+void IAC::run()
+{
   if( !_stepper.distanceToGo() )
   {
     if( _state == sResetting )
@@ -113,8 +116,10 @@ void IAC::control_RPM( unsigned long aNow )
       _state = sReady;
     }
   }
-
-  _stepper.runSpeedToPosition();
+  else
+  {
+    _stepper.runSpeedToPosition();
+  }
 }
 
 void IAC::reset()

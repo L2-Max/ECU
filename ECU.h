@@ -11,14 +11,13 @@ struct ECU
 {
   enum E_State
   {
-    sSetup,
-    sInitial,
-    sStarting,
+    sInit,
+    sUninit,
+    sWforEstarting,
+    sWforEgetsSrpm,
+    sWforEidlingAstartup,
     sIdling,
-    sRunning,
-    sShutDown,
-    sWait,
-    sFinish
+    sRunning
   };
   
   ECU();
@@ -26,7 +25,7 @@ struct ECU
 
   static void Iterrupt_Injector_Change();
   
-  bool run();
+  void run( unsigned long aNow_MS );
 
   void calculate_target_RPM( unsigned long aNow );
   
@@ -38,6 +37,17 @@ struct ECU
   Injector _injector;
 
   E_State _state;
+
+  void ( ECU::*_state_handler )();
+
+  void init();
+  void uninit();
+
+  void wait_for_engine_starting();
+  void wait_for_engine_gets_startup_rpm();
+  void wait_for_engine_idling_after_startup();
+
+  void engine_idling();
 
   Average< unsigned short > _rpm_average;
 

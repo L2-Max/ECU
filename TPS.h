@@ -7,7 +7,7 @@ struct TPS
 {
   TPS();
 
-  void read( unsigned long aNow );
+  void read( unsigned long aNow_MS );
   unsigned long read_Vcc();
 
   bool _isOpen;

@@ -19,7 +19,8 @@ struct IAC
   ~IAC();
 
   void step( short aSteps );
-  void control_RPM( unsigned long aNow );
+  void control_RPM( unsigned long aNow_MS );
+  void run();
   void reset();
 
   ECU& _ecu;
