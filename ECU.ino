@@ -116,8 +116,7 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sSetup ), _rpm_zero_counter( 0 ), _last_tps_state( _tps._isOpen ),
-  _last_idle_position( 0 )
+  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sSetup ), _rpm_zero_counter( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
@@ -209,28 +208,11 @@ bool ECU::run()
           {
             _state = sIdling;
           }
-
-          if( _last_tps_state != _tps._isOpen )
-          {
-            if( _state == sRunning )
-            {
-              _iac.step( _last_idle_position - _iac._stepper.currentPosition() );
-            }
-          }
         }
         else if( _tps._isOpen )
         {
           _state = sRunning;
-
-          if( _last_tps_state != _tps._isOpen )
-          {
-            _last_idle_position = _iac._stepper.currentPosition();
-            
-            _iac.step( 500 );
-          }
         }
-
-        _last_tps_state = _tps._isOpen;
       }
       else
       {
