@@ -5,7 +5,7 @@
 #define PIN_TPS A0
 
 #define TPS_SAMPLING_MS 100000
-#define TPS_VALUE_CLOSED 490.
+#define TPS_VALUE_CLOSED 520.
 
 TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 3 )
 {

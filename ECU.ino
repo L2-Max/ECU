@@ -1,5 +1,7 @@
 #include "ECU.h"
 
+#include "EEPROM_Defs.h"
+
 #include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
@@ -114,11 +116,19 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sInitial ), _rpm_zero_counter( 0 ), _last_tps_state( _tps._isOpen )
+  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sSetup ), _rpm_zero_counter( 0 ), _last_tps_state( _tps._isOpen ),
+  _last_idle_position( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
   attachInterrupt( digitalPinToInterrupt( PIN_INJECTOR ), ECU::Iterrupt_Injector_Change, CHANGE );
+
+  if( !EEPROM.read( ECU_RESET_FLAG_ADDR ) )
+  {
+    _iac.reset();
+  }
+
+  //EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
 }
 
 ECU::~ECU()
@@ -144,13 +154,24 @@ bool ECU::run()
 
     calculate_target_RPM( theNow );
 
-    if( _state == sInitial )
+    if( _state == sSetup )
     {
-      if( _rpm )
+      if( _iac._state == IAC::sReady )
+      {
+        _state = sInitial;
+
+        EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
+      }
+    }
+    else if( _state == sInitial )
+    {
+      if( _rpm >= ( ECU_IDLE_RPM - 500 ) )
       {
         if( _rpm > ECU_STARTUP_RPM )
         {
            _state = sStarting;
+
+           EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
         }
         else
         {
@@ -193,7 +214,7 @@ bool ECU::run()
           {
             if( _state == sRunning )
             {
-              _iac.step( -50 );
+              _iac.step( _last_idle_position - _iac._stepper.currentPosition() );
             }
           }
         }
@@ -203,7 +224,9 @@ bool ECU::run()
 
           if( _last_tps_state != _tps._isOpen )
           {
-            _iac.step( 300 );
+            _last_idle_position = _iac._stepper.currentPosition();
+            
+            _iac.step( 500 );
           }
         }
 
@@ -225,6 +248,8 @@ bool ECU::run()
       if( _iac._state == IAC::sReady )
       {
         _state = sFinish;
+
+        EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
       }
     }
     else if( _state == sFinish )

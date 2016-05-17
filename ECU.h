@@ -11,6 +11,7 @@ struct ECU
 {
   enum E_State
   {
+    sSetup,
     sInitial,
     sStarting,
     sIdling,
@@ -47,6 +48,8 @@ struct ECU
   unsigned char _startup_timer;
 
   bool _last_tps_state;
+  long _last_idle_position;
+  
   unsigned long _last_sample_usecs;
   unsigned long _last_rpm_change_usecs;
 };

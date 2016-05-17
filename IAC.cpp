@@ -13,33 +13,27 @@
 #define IAC_I_MAX 50
 #define IAC_D_MAX 50
 
-#define IAC_START_POS 700
+#define IAC_START_POS 1000
 #define IAC_SPEED 700
-
-#define IAC_CURR_POS_ADDR 0
-#define IAC_STARTUP_POS_ADDR 2
 
 IAC::IAC( ECU& anECU ) :
   _ecu( anECU ), _last_control( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
-  _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 8, 10, 9, 11 ),
+  _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 12, 10, 11, 8 ),
   _state( sReady )
 {
   _stepper.setMaxSpeed( 2000. );
   _stepper.setAcceleration( 1000. );
 
-  step( -1000 );
-
-  //EEPROM.get( IAC_CURR_POS_ADDR, _pos );
+  _stepper.setCurrentPosition( IAC_START_POS );
 }
 
 IAC::~IAC()
 {
-  //EEPROM.put( IAC_CURR_POS_ADDR, _pos );
 }
 
 void IAC::step( short aSteps )
 {
-  /*if( ( _stepper.currentPosition() + aSteps ) > IAC_MAX_STEPS )
+  if( ( _stepper.currentPosition() + aSteps ) > IAC_MAX_STEPS )
   {
     _stepper.move( IAC_MAX_STEPS - _stepper.currentPosition() );
   }
@@ -47,7 +41,7 @@ void IAC::step( short aSteps )
   {
     _stepper.move( -_stepper.currentPosition() );
   }
-  else*/
+  else
   {
     _stepper.move( aSteps );
   }
@@ -110,7 +104,9 @@ void IAC::control_RPM( unsigned long aNow )
     {
       _state = sSetting;
 
-      //step( IAC_START_POS );
+      _stepper.setCurrentPosition( 0 );
+      
+      step( IAC_START_POS );
     }
     else if( _state == sSetting )
     {
@@ -125,7 +121,7 @@ void IAC::reset()
 {
   _state = sResetting;
 
-  //_stepper.move( -500 );
-  //_stepper.setSpeed( IAC_SPEED );
+  _stepper.move( -_stepper.currentPosition() - 100 );
+  _stepper.setSpeed( IAC_SPEED );
 }
 

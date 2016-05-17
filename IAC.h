@@ -29,7 +29,7 @@ struct IAC
   EState _state;
   
   const float _Kp = 1;
-  const float _Ki = .1;
+  const float _Ki = .3;
   const float _Kd = .3;
 
   short _last_target_rpm;
