@@ -5,7 +5,7 @@
 //#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
-#define ECU_SAMPLING_MS 50
+#define ECU_SAMPLING_MS 100.
 
 #define DISPLAY_INTERVAL_MS 700
 
@@ -83,6 +83,9 @@ void loop()
       Serial.print( " d" );
       Serial.print( g_ECU->_iac._derivative );
 
+      Serial.print( " r_m" );
+      Serial.print( g_ECU->_rpm_max );
+
       Serial.println();
       
       //g_lcd.setCursor( 0, 1 );
@@ -125,7 +128,9 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 2 ), _last_rpm_change_usecs( 0 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init )
+  _rpm_average( 2 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 10 ), _periods_on_zero_counter( 0 ),
+  _rpm_max( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
@@ -135,6 +140,7 @@ ECU::ECU() :
   {
     _iac.reset();
   }
+  
 
   //EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
 }
@@ -154,7 +160,7 @@ void ECU::run( unsigned long aNow_MS )
   if( aNow_MS >= _last_sample_usecs )
   {
     read_RPM( aNow_MS );
-    read_Fueling( aNow_MS );
+    //read_Fueling( aNow_MS );
 
     calculate_target_RPM( aNow_MS );
 
@@ -184,10 +190,10 @@ void ECU::init()
 
 void ECU::uninit()
 {
+  _state = sUninit;
+  
   if( _iac._state == IAC::sReady )
   {
-    _state = sUninit;
-
     EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
 
     g_Reset = true;
@@ -208,16 +214,16 @@ void ECU::wait_for_engine_gets_startup_rpm()
 {
   _state = sWforEgetsSrpm;
   
-  if( _rpm >= ( ECU_IDLE_RPM - 500 ) )
+  if( _rpm )
   {
     if( _rpm > ECU_STARTUP_RPM )
     {
-       EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
-
        _state_handler = &ECU::wait_for_engine_idling_after_startup;
     }
     else
     {
+      EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
+      
       _iac.step( 100 );
     }
   }
@@ -259,12 +265,32 @@ void ECU::engine_idling()
       if( _rpm >= ( ECU_IDLE_RPM - 500 ) && _rpm <= ( ECU_IDLE_RPM + 200 ) )
       {
         _state = sIdling;
+
+        if( _rpm >= ( ECU_IDLE_RPM - 50 ) && _rpm <= ( ECU_IDLE_RPM + 50 ) )
+        {
+          _last_idle_steps = _iac._stepper.currentPosition();
+        }
+      }
+
+      if( _last_tps_state != _tps._isOpen )
+      {
+         _iac.stepTo( _last_idle_steps );
       }
     }
     else if( _tps._isOpen )
     {
       _state = sRunning;
+
+      if( _last_tps_state != _tps._isOpen )
+      {
+        if( _last_idle_steps )
+        {
+          _iac.stepTo( _last_idle_steps + 600 );
+        }
+      }
     }
+
+    _last_tps_state = _tps._isOpen;
   }
   else
   {
@@ -307,17 +333,31 @@ void ECU::read_RPM( unsigned long aNow )
   
   if( thePeriods._count )
   {
-    unsigned short theRpm( ( aNow - _last_sample_usecs ) * 30. /
-                             thePeriods._usecs * thePeriods._count / ( ECU_SAMPLING_MS / 1000. ) );
+    unsigned short theRpm( ( 1000000. * 30. ) / ( float( thePeriods._usecs ) / thePeriods._count ) );
 
-    _rpm_average.push( theRpm );
-    _rpm = _rpm_average.average();
-
-    _rpm_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
+    if( theRpm > 200 )
+    {
+      _rpm_average.push( theRpm );
+      _rpm = _rpm_average.average();
+  
+      _rpm_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
+  
+      if( _rpm > _rpm_max )
+      {
+        _rpm_max = _rpm;
+      }
+    }
   }
-  else if( !--_rpm_zero_counter )
+  else
   {
-    _rpm = 0;
+    if( !_rpm_zero_counter )
+    {
+      _rpm = 0;
+    }
+    else
+    {
+      --_rpm_zero_counter;
+    }
   }
 }
 
@@ -327,6 +367,18 @@ void ECU::read_Fueling( unsigned long aNow )
   
   if( thePeriods._count )
   {
+    _periods_on_average.push( thePeriods._usecs * thePeriods._count / ( ECU_SAMPLING_MS ) );
+  }
+  else
+  {
+    if( !_periods_on_zero_counter )
+    {
+      _periods_on_average.push( 0 );
+    }
+    else
+    {
+      --_rpm_zero_counter;
+    }
   }
 }
 

@@ -48,5 +48,6 @@ T Average< T >::average()const
   return ret;
 }
 
+template class Average< unsigned long >;
 template class Average< unsigned short >;
 template class Average< unsigned char >;

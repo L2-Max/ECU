@@ -19,7 +19,10 @@ struct IAC
   ~IAC();
 
   void step( short aSteps );
+  void stepTo( unsigned short aSteps );
+  
   void control_RPM( unsigned long aNow_MS );
+  
   void run();
   void reset();
 

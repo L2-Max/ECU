@@ -49,10 +49,23 @@ void IAC::step( short aSteps )
   _stepper.setSpeed( IAC_SPEED );
 }
 
+void IAC::stepTo( unsigned short aSteps )
+{
+  if( aSteps > IAC_MAX_STEPS )
+  {
+    aSteps = IAC_MAX_STEPS;
+  }
+
+  _stepper.moveTo( aSteps );
+  _stepper.setSpeed( IAC_SPEED );
+}
+
 void IAC::control_RPM( unsigned long aNow_MS )
 {
   if( aNow_MS >= _last_control )
   {
+    _last_control = ( aNow_MS + IAC_CONTROL_MS );
+    
     if( _state == sReady )
     {
       if( _ecu._state == ECU::sIdling )
@@ -68,8 +81,8 @@ void IAC::control_RPM( unsigned long aNow_MS )
           theError = -IAC_ERROR_MAX;
         }
 
-        _integral += theError * ( float( aNow_MS - _last_control ) / IAC_CONTROL_MS  );
-        _derivative = ( theError - _last_error ) / ( float( aNow_MS - _last_control ) / IAC_CONTROL_MS );
+        _integral += theError;
+        _derivative = ( theError - _last_error );
 
         if( _integral > IAC_I_MAX )
         {
@@ -94,8 +107,6 @@ void IAC::control_RPM( unsigned long aNow_MS )
         _last_error = theError;
       }
     }
-    
-    _last_control = ( aNow_MS + IAC_CONTROL_MS );
   }
 }
 

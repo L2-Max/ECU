@@ -17,7 +17,8 @@ struct ECU
     sWforEgetsSrpm,
     sWforEidlingAstartup,
     sIdling,
-    sRunning
+    sRunning,
+    sResetting
   };
   
   ECU();
@@ -50,15 +51,19 @@ struct ECU
   void engine_idling();
 
   Average< unsigned short > _rpm_average;
+  Average< unsigned long > _periods_on_average;
 
   short _rpm;
   short _rpm_target;
+  unsigned short _rpm_max;
+  
   unsigned char _rpm_zero_counter;
+  unsigned char _periods_on_zero_counter;
 
-  unsigned char _startup_timer;
+  bool _last_tps_state;
 
+  unsigned short _last_idle_steps;
   unsigned long _last_sample_usecs;
-  unsigned long _last_rpm_change_usecs;
 };
 
 #endif

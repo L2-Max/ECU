@@ -24,17 +24,16 @@ struct Injector
 
   bool _is_On;
 
+  volatile unsigned char _interrupted;
+  
   volatile bool _slot_periods;
   volatile bool _slot_periods_on;
 
-  Periods _private_periods;
-  Periods _private_periods_on;
-  
+  volatile unsigned long _periods_count;
+  volatile unsigned long _periods_on_count;
+
   Periods _periods[ 2 ];
   Periods _periods_on[ 2 ];
-
-  Periods _last_periods;
-  Periods _last_periods_on;
   
   char _state;
 
