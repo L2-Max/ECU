@@ -184,10 +184,10 @@ void ECU::init()
 
 void ECU::uninit()
 {
+  _state = sUninit;
+  
   if( _iac._state == IAC::sReady )
   {
-    _state = sUninit;
-
     EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
 
     g_Reset = true;
