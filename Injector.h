@@ -7,6 +7,11 @@ struct ECU;
 
 struct Periods
 {
+  Periods()
+  {
+    _count = 0;
+  }
+  
   volatile unsigned long _count;
   volatile unsigned long _usecs;
 };
@@ -17,20 +22,17 @@ struct Injector
 
   void read();
 
-  const Periods& read_periods();
-  const Periods& read_periods_on();
-
-  static const Periods& read_periods( Periods& aPeriods, Periods& aLast );
+  void read_periods( Periods& aPeriods );
+  void read_periods_on( Periods& aPeriods );
 
   bool _is_On;
 
-  volatile unsigned char _interrupted;
-  
   volatile bool _slot_periods;
   volatile bool _slot_periods_on;
 
-  volatile unsigned long _periods_count;
-  volatile unsigned long _periods_on_count;
+  unsigned long _periods_count;
+  unsigned long _periods_on_count;
+  unsigned long _periods_on_usecs;
 
   Periods _periods[ 2 ];
   Periods _periods_on[ 2 ];

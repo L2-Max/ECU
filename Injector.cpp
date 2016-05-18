@@ -9,11 +9,8 @@
 
 Injector::Injector( ECU& anEcu ) :
    _ecu( anEcu ), _is_On( false ), _slot_periods( false ), _slot_periods_on( false ), _state( 0 ),
-   _interrupted( 0 ), _periods_count( 0 ), _periods_on_count( 0 )
+   _periods_count( 0 ), _periods_on_count( 0 ), _periods_on_usecs( 0 )
 {
-  memset( _periods, 0, sizeof( _periods ) );
-  memset( _periods_on, 0, sizeof( _periods_on ) );
-  
   pinMode( PIN_INJECTOR, INPUT_PULLUP );
 }
 
@@ -41,17 +38,17 @@ void Injector::read()
     if( !_is_On )
     {
       ++_periods_count;
-      
-      _periods[ _slot_periods ]._usecs = micros();
-      _periods[ _slot_periods ]._count = _periods_count;
 
-      _interrupted = 1;
+      _periods_on_usecs = micros();
+      
+      _periods[ _slot_periods ]._usecs = _periods_on_usecs;
+      _periods[ _slot_periods ]._count = _periods_count;
     }
     else
     {
       ++_periods_on_count;
       
-      _periods_on[ _slot_periods_on ]._usecs += ( micros() - _periods[ _slot_periods ]._usecs );
+      _periods_on[ _slot_periods_on ]._usecs += ( micros() - _periods_on_usecs );
       _periods_on[ _slot_periods_on ]._count = _periods_on_count;
     }
 
@@ -59,57 +56,41 @@ void Injector::read()
   }
 }
 
-const Periods& Injector::read_periods()
+void Injector::read_periods( Periods& aPeriods )
 {
-  static Periods ret;
-
-  if( _interrupted )
+  if( _periods[ _slot_periods ]._count )
   {
     Periods theLastPeriods( _periods[ !_slot_periods ] );
     
+    _periods[ !_slot_periods ]._count = 0;
+    
     _slot_periods = !_slot_periods;
 
-    _interrupted = 0;
-    
-    if( theLastPeriods._usecs )
+    if( theLastPeriods._count )
     {
-       ret._usecs = ( _periods[ !_slot_periods ]._usecs - theLastPeriods._usecs );
-       ret._count = ( _periods[ !_slot_periods ]._count - theLastPeriods._count );
+       aPeriods._usecs = ( _periods[ !_slot_periods ]._usecs - theLastPeriods._usecs );
+       aPeriods._count = ( _periods[ !_slot_periods ]._count - theLastPeriods._count );
     }
   }
-  else
-  {
-     ret._usecs = 0;
-     ret._count = 0;
-  }
-
-  return ret;//read_periods( _periods[ !_slot_periods ], thePeriods );
 }
 
-const Periods& Injector::read_periods_on()
+void Injector::read_periods_on( Periods& aPeriods )
 {
-  Periods thePeriods( _periods_on[ !_slot_periods_on ] );
-  
-  _slot_periods_on = !_slot_periods_on;
-  
-  return read_periods( _periods_on[ !_slot_periods_on ], thePeriods );
-}
-
-const Periods& Injector::read_periods( Periods& aPeriods, Periods& aLast )
-{
-  static Periods ret;
-  
-  if( aLast._usecs )
+  if( _periods_on[ _slot_periods_on ]._usecs )
   {
-     ret._usecs = ( aPeriods._usecs - aLast._usecs );
-     ret._count = ( aPeriods._count - aLast._count );
-  }
-  else
-  {
-    ret._usecs = 0;
-    ret._count = 0;
-  }
+    Periods theLastPeriods( _periods_on[ !_slot_periods_on ] );
+    
+    _periods_on[ !_slot_periods_on ]._count = 0;
+    
+    _slot_periods_on = !_slot_periods_on;
 
-  return ret;
+    if( theLastPeriods._count )
+    {
+       aPeriods._usecs = _periods_on[ !_slot_periods_on ]._usecs;
+       aPeriods._count = ( _periods_on[ !_slot_periods_on ]._count - theLastPeriods._count );
+
+       _periods_on[ !_slot_periods_on ]._usecs = 0;
+    }
+  }
 }
 

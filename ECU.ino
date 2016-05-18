@@ -5,9 +5,9 @@
 //#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
-#define ECU_SAMPLING_MS 100.
+#define ECU_SAMPLING_MS 50
 
-#define DISPLAY_INTERVAL_MS 700
+#define DISPLAY_INTERVAL_MS 900
 
 #define ECU_POWER_PIN 4
 
@@ -39,6 +39,8 @@ void setup()
 
   pinMode( 8, OUTPUT );
   digitalWrite( 8, LOW );*/
+
+  pinMode( 5, OUTPUT );
 }
 
 unsigned long g_Cycles( 0 );
@@ -50,6 +52,49 @@ unsigned long g_Display_MS( 0 );
 
 bool g_Reset( false );
 
+void simulator()
+{
+  static int g_PinState( HIGH );
+  static volatile unsigned long g_NextHIGH( 0 );
+  static volatile unsigned long g_HIGHCount( 0 );
+
+  static unsigned long g_Stimer( 300 );
+  static unsigned short g_Delay( 19000 );
+  static unsigned short g_Off_Delay( 500 );
+  
+  unsigned long theNow( micros() );
+
+  if( g_Off_Delay )
+  {
+    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay )
+    {
+      if( g_Stimer )
+      {
+        if( !--g_Stimer )
+        {
+          g_Delay = 29990;
+        }
+      }
+      
+      g_NextHIGH = theNow;
+      
+      ++g_HIGHCount;
+      
+      g_PinState = LOW;
+      
+      digitalWrite( 5, g_PinState );
+    }
+    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 1000 )
+    {
+      g_PinState = HIGH;
+      
+      digitalWrite( 5, g_PinState );
+
+      --g_Off_Delay;
+    }
+  }
+}
+
 void loop()
 {
   if( !g_ECU )
@@ -59,6 +104,8 @@ void loop()
   
   for( ; !g_Reset ; )
   {
+    simulator();
+    
     unsigned long theNow( millis() );
 
     g_ECU->run( theNow );
@@ -107,6 +154,17 @@ void loop()
 
       Serial.println();
 
+      Serial.print( "pw" );
+      Serial.print( g_ECU->_periods_on_average.average() );
+
+      Serial.print( " lm" );
+      Serial.print( ( g_ECU->_periods_on_average.average() * g_ECU->_rpm ) / 60. * .000002 );
+
+      Serial.print( " lh" );
+      Serial.print( g_ECU->_periods_on_average.average() * g_ECU->_rpm * .000002 );
+
+      Serial.println();
+
       g_Display_MS = ( millis() - g_LastMS );
       
       g_Cycles = 0;
@@ -128,8 +186,8 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 2 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
-  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 10 ), _periods_on_zero_counter( 0 ),
+  _rpm_average( 1 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
@@ -160,7 +218,7 @@ void ECU::run( unsigned long aNow_MS )
   if( aNow_MS >= _last_sample_usecs )
   {
     read_RPM( aNow_MS );
-    //read_Fueling( aNow_MS );
+    read_Fueling( aNow_MS );
 
     calculate_target_RPM( aNow_MS );
 
@@ -329,11 +387,13 @@ void ECU::calculate_target_RPM( unsigned long aNow )
 
 void ECU::read_RPM( unsigned long aNow )
 {
-  Periods thePeriods( _injector.read_periods() );
+  Periods thePeriods;
+  
+  _injector.read_periods( thePeriods );
   
   if( thePeriods._count )
   {
-    unsigned short theRpm( ( 1000000. * 30. ) / ( float( thePeriods._usecs ) / thePeriods._count ) );
+    unsigned short theRpm( ( 1000000. * 30 ) / thePeriods._usecs * thePeriods._count );
 
     if( theRpm > 200 )
     {
@@ -363,11 +423,15 @@ void ECU::read_RPM( unsigned long aNow )
 
 void ECU::read_Fueling( unsigned long aNow )
 {
-  Periods thePeriods( _injector.read_periods_on() );
+  Periods thePeriods;
+
+  _injector.read_periods_on( thePeriods );
   
   if( thePeriods._count )
   {
-    _periods_on_average.push( thePeriods._usecs * thePeriods._count / ( ECU_SAMPLING_MS ) );
+    _periods_on_average.push( float( thePeriods._usecs / thePeriods._count ) );
+
+    _periods_on_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
   }
   else
   {
@@ -377,7 +441,7 @@ void ECU::read_Fueling( unsigned long aNow )
     }
     else
     {
-      --_rpm_zero_counter;
+      --_periods_on_zero_counter;
     }
   }
 }
