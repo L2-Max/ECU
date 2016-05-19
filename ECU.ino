@@ -19,10 +19,10 @@ void setup()
 {
   Serial.begin(19200);
 
-/*  for( int i( 0 ); i < EEPROM.length() ; i++ )
+  for( int i( 0 ); i < EEPROM.length() ; i++ )
   {
-    EEPROM.write( i, 0 );
-  }*/
+    //EEPROM.write( i, 0 );
+  }
   
 /*  g_lcd.begin(16,2);
 
@@ -84,7 +84,7 @@ void simulator()
       
       digitalWrite( 5, g_PinState );
     }
-    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 1000 )
+    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 4000 )
     {
       g_PinState = HIGH;
       
@@ -104,7 +104,7 @@ void loop()
   
   for( ; !g_Reset ; )
   {
-    simulator();
+    //simulator();
     
     unsigned long theNow( millis() );
 
@@ -157,12 +157,12 @@ void loop()
       Serial.print( "pw" );
       Serial.print( g_ECU->_periods_on_average.average() );
 
-      Serial.print( " lm" );
-      Serial.print( ( g_ECU->_periods_on_average.average() * g_ECU->_rpm ) / 60. * .000002 );
-
       Serial.print( " lh" );
-      Serial.print( g_ECU->_periods_on_average.average() * g_ECU->_rpm * .000002 );
+      Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
 
+      Serial.print( " lt" );
+      Serial.print( float( g_ECU->_total_periods_on ) * ( .000000123 / 60. ), 3 );
+      
       Serial.println();
 
       g_Display_MS = ( millis() - g_LastMS );
@@ -186,9 +186,9 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 1 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
   _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
-  _rpm_max( 0 )
+  _rpm_max( 0 ), _total_periods_on( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
@@ -198,13 +198,14 @@ ECU::ECU() :
   {
     _iac.reset();
   }
-  
 
-  //EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
+  EEPROM.get( ECU_MPG_TOTAL_ADDR, _total_periods_on );
 }
 
 ECU::~ECU()
 {
+  EEPROM.put( ECU_MPG_TOTAL_ADDR, _total_periods_on );
+  
   digitalWrite( ECU_POWER_PIN, LOW );
 }
 
@@ -343,7 +344,7 @@ void ECU::engine_idling()
       {
         if( _last_idle_steps )
         {
-          _iac.stepTo( _last_idle_steps + 600 );
+          _iac.stepTo( _last_idle_steps + 800 );
         }
       }
     }
@@ -429,7 +430,8 @@ void ECU::read_Fueling( unsigned long aNow )
   
   if( thePeriods._count )
   {
-    _periods_on_average.push( float( thePeriods._usecs / thePeriods._count ) );
+    _periods_on_average.push( float( thePeriods._usecs ) / thePeriods._count );
+    _total_periods_on += thePeriods._usecs;
 
     _periods_on_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
   }

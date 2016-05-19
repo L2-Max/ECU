@@ -81,8 +81,8 @@ void IAC::control_RPM( unsigned long aNow_MS )
           theError = -IAC_ERROR_MAX;
         }
 
-        _integral += theError;
-        _derivative = ( theError - _last_error );
+        _integral += theError * ( IAC_CONTROL_MS / 1000. );
+        _derivative = ( theError - _last_error ) / ( IAC_CONTROL_MS / 1000. );
 
         if( _integral > IAC_I_MAX )
         {
@@ -137,7 +137,7 @@ void IAC::reset()
 {
   _state = sResetting;
 
-  _stepper.move( -_stepper.currentPosition() - 100 );
+  _stepper.move( - _stepper.currentPosition() - 300 );
   _stepper.setSpeed( IAC_SPEED );
 }
 
