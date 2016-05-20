@@ -59,14 +59,14 @@ void simulator()
   static volatile unsigned long g_HIGHCount( 0 );
 
   static unsigned long g_Stimer( 300 );
-  static unsigned short g_Delay( 19000 );
+  static unsigned long g_Delay( 19000 );
   static unsigned short g_Off_Delay( 500 );
   
   unsigned long theNow( micros() );
 
   if( g_Off_Delay )
   {
-    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay )
+    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay * 4 )
     {
       if( g_Stimer )
       {
@@ -121,16 +121,16 @@ void loop()
       Serial.print( "c" );
       Serial.print( g_Cycles / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
 
-      Serial.print( " e" );
+      Serial.print( "\te" );
       Serial.print( g_ECU->_iac._last_error );
       
-      Serial.print( " i" );
+      Serial.print( "\ti" );
       Serial.print( g_ECU->_iac._integral );
 
-      Serial.print( " d" );
+      Serial.print( "\td" );
       Serial.print( g_ECU->_iac._derivative );
 
-      Serial.print( " r_m" );
+      Serial.print( "\tr_m" );
       Serial.print( g_ECU->_rpm_max );
 
       Serial.println();
@@ -140,16 +140,16 @@ void loop()
       Serial.print( "r" );
       Serial.print( g_ECU->_rpm );
 
-      Serial.print( " t" );
+      Serial.print( "\tt" );
       Serial.print( g_ECU->_rpm_target );
 
-      Serial.print( " p" );
+      Serial.print( "\tp" );
       Serial.print( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
 
-      Serial.print( " tps" );
+      Serial.print( "\ttps" );
       Serial.print( g_ECU->_tps._value );
 
-      Serial.print( " s" );
+      Serial.print( "\ts" );
       Serial.print( g_ECU->_state );
 
       Serial.println();
@@ -157,11 +157,11 @@ void loop()
       Serial.print( "pw" );
       Serial.print( g_ECU->_periods_on_average.average() );
 
-      Serial.print( " lh" );
+      Serial.print( "\tlh" );
       Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
 
-      Serial.print( " lt" );
-      Serial.print( float( g_ECU->_total_periods_on ) * ( .000000123 / 60. ), 3 );
+      Serial.print( "\tlt" );
+      Serial.print( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
       
       Serial.println();
 
@@ -187,7 +187,7 @@ void loop()
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
   _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
-  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
+  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 3 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 ), _total_periods_on( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
@@ -333,7 +333,7 @@ void ECU::engine_idling()
 
       if( _last_tps_state != _tps._isOpen )
       {
-         _iac.stepTo( _last_idle_steps );
+         _iac.stepTo( _last_idle_steps + 200 );
       }
     }
     else if( _tps._isOpen )
@@ -394,14 +394,14 @@ void ECU::read_RPM( unsigned long aNow )
   
   if( thePeriods._count )
   {
-    unsigned short theRpm( ( 1000000. * 30 ) / thePeriods._usecs * thePeriods._count );
+    unsigned short theRpm( ( 1000000. * 120 ) / thePeriods._usecs * thePeriods._count );
 
     if( theRpm > 200 )
     {
       _rpm_average.push( theRpm );
       _rpm = _rpm_average.average();
   
-      _rpm_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
+      _rpm_zero_counter = ( 1000 / ECU_SAMPLING_MS );
   
       if( _rpm > _rpm_max )
       {
