@@ -4,6 +4,9 @@
 #include "IAC.h"
 #include "Injector.h"
 #include "TPS.h"
+#include "ECT.h"
+#include "VSS.h"
+#include "MAP.h"
 
 #include "Average.h"
 
@@ -25,6 +28,7 @@ struct ECU
   ~ECU();
 
   static void Iterrupt_Injector_Change();
+  static void Iterrupt_VSS_Change();
   
   void run( unsigned long aNow_MS );
 
@@ -35,6 +39,9 @@ struct ECU
 
   IAC _iac;
   TPS _tps;
+  ECT _ect;
+  VSS _vss;
+  MAP _map;
   Injector _injector;
 
   E_State _state;

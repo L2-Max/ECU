@@ -7,7 +7,7 @@
 
 #define ECU_SAMPLING_MS 50
 
-#define DISPLAY_INTERVAL_MS 900
+#define DISPLAY_INTERVAL_MS 666
 
 #define ECU_POWER_PIN 4
 
@@ -17,7 +17,7 @@ ECU* g_ECU( 0 );
 
 void setup()
 {
-  Serial.begin(19200);
+  Serial.begin( 250000 );
 
   for( int i( 0 ); i < EEPROM.length() ; i++ )
   {
@@ -58,9 +58,9 @@ void simulator()
   static volatile unsigned long g_NextHIGH( 0 );
   static volatile unsigned long g_HIGHCount( 0 );
 
-  static unsigned long g_Stimer( 300 );
+  static unsigned long g_Stimer( 200 );
   static unsigned long g_Delay( 19000 );
-  static unsigned short g_Off_Delay( 500 );
+  static unsigned short g_Off_Delay( 300 );
   
   unsigned long theNow( micros() );
 
@@ -108,6 +108,11 @@ void loop()
     
     unsigned long theNow( millis() );
 
+    if( theNow < 3000 )
+    {
+      //continue;
+    }
+
     g_ECU->run( theNow );
 
     if( theNow >= g_NextMS )
@@ -118,6 +123,8 @@ void loop()
       //g_lcd.home();
       //g_lcd.clear();
 
+      Serial.println();
+      
       Serial.print( "c" );
       Serial.print( g_Cycles / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
 
@@ -146,15 +153,15 @@ void loop()
       Serial.print( "\tp" );
       Serial.print( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
 
-      Serial.print( "\ttps" );
-      Serial.print( g_ECU->_tps._value );
-
       Serial.print( "\ts" );
       Serial.print( g_ECU->_state );
 
       Serial.println();
 
-      Serial.print( "pw" );
+      Serial.print( "int" );
+      Serial.print( g_ECU->_injector._ints );
+
+      Serial.print( "\tpw" );
       Serial.print( g_ECU->_periods_on_average.average() );
 
       Serial.print( "\tlh" );
@@ -163,6 +170,26 @@ void loop()
       Serial.print( "\tlt" );
       Serial.print( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
       
+      Serial.println();
+
+      Serial.print( "tps" );
+      Serial.print( g_ECU->_tps._value );
+
+      Serial.print( "\tect" );
+      Serial.print( g_ECU->_ect._temperature );
+
+      Serial.print( "\tmap" );
+      Serial.print( g_ECU->_map._pressure );
+
+      Serial.print( "\tvss" );
+
+      if( g_ECU->_vss._pulses_h )
+      {
+         Serial.print( g_ECU->_vss._pulses_h );
+      }
+
+      Serial.print( g_ECU->_vss._pulses_l );
+
       Serial.println();
 
       g_Display_MS = ( millis() - g_LastMS );
@@ -186,13 +213,14 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
-  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 3 ), _periods_on_zero_counter( 0 ),
+  _rpm_average( 1 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _last_idle_steps( 0 ), _last_tps_state( _tps._isOpen ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 ), _total_periods_on( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
   attachInterrupt( digitalPinToInterrupt( PIN_INJECTOR ), ECU::Iterrupt_Injector_Change, CHANGE );
+  attachInterrupt( digitalPinToInterrupt( PIN_VSS ), ECU::Iterrupt_VSS_Change, CHANGE );
 
   if( !EEPROM.read( ECU_RESET_FLAG_ADDR ) )
   {
@@ -200,11 +228,13 @@ ECU::ECU() :
   }
 
   EEPROM.get( ECU_MPG_TOTAL_ADDR, _total_periods_on );
+  EEPROM.get( ECU_MAX_RPM, _rpm_max );
 }
 
 ECU::~ECU()
 {
   EEPROM.put( ECU_MPG_TOTAL_ADDR, _total_periods_on );
+  EEPROM.put( ECU_MAX_RPM, _rpm_max );
   
   digitalWrite( ECU_POWER_PIN, LOW );
 }
@@ -214,6 +244,11 @@ void ECU::Iterrupt_Injector_Change()
   g_ECU->_injector.read();
 }
 
+void ECU::Iterrupt_VSS_Change()
+{
+  g_ECU->_vss.read();
+}
+
 void ECU::run( unsigned long aNow_MS )
 {
   if( aNow_MS >= _last_sample_usecs )
@@ -221,9 +256,11 @@ void ECU::run( unsigned long aNow_MS )
     read_RPM( aNow_MS );
     read_Fueling( aNow_MS );
 
-    calculate_target_RPM( aNow_MS );
-
     _tps.read( aNow_MS );
+    _ect.read( aNow_MS );
+    _map.read( aNow_MS );
+
+    calculate_target_RPM( aNow_MS );
 
     ( this->*_state_handler )();
 
@@ -263,7 +300,7 @@ void ECU::wait_for_engine_starting()
 {
   _state = sWforEstarting;
   
-  if( _rpm )
+  if( _rpm > 500 )
   {
     _state_handler = &ECU::wait_for_engine_gets_startup_rpm;
   }
@@ -283,7 +320,7 @@ void ECU::wait_for_engine_gets_startup_rpm()
     {
       EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
       
-      _iac.step( 100 );
+      _iac.step( 300. / ( 1000. / ECU_SAMPLING_MS ) );
     }
   }
 }
@@ -302,7 +339,7 @@ void ECU::wait_for_engine_idling_after_startup()
     }
     else
     {
-      _iac.step( -100 );
+      _iac.step( -300 / ( 1000. / ECU_SAMPLING_MS ) );
     }
   }
   else
@@ -315,8 +352,6 @@ void ECU::wait_for_engine_idling_after_startup()
 
 void ECU::engine_idling()
 {
-  _state = sIdling;
-  
   if( _rpm )
   {
     if( !_tps._isOpen )
@@ -330,10 +365,14 @@ void ECU::engine_idling()
           _last_idle_steps = _iac._stepper.currentPosition();
         }
       }
+      else if( _rpm >= ( ECU_IDLE_RPM + 200 ) )
+      {
+        _state = sRunning;
+      }
 
       if( _last_tps_state != _tps._isOpen )
       {
-         _iac.stepTo( _last_idle_steps + 200 );
+         _iac.stepTo( _last_idle_steps + 500 );
       }
     }
     else if( _tps._isOpen )
@@ -344,7 +383,7 @@ void ECU::engine_idling()
       {
         if( _last_idle_steps )
         {
-          _iac.stepTo( _last_idle_steps + 800 );
+          _iac.stepTo( _last_idle_steps + 600 );
         }
       }
     }

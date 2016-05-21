@@ -34,6 +34,8 @@ struct Injector
   unsigned long _periods_on_count;
   unsigned long _periods_on_usecs;
 
+  volatile unsigned long _ints;
+
   Periods _periods[ 2 ];
   Periods _periods_on[ 2 ];
   

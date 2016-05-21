@@ -9,13 +9,18 @@
 
 Injector::Injector( ECU& anEcu ) :
    _ecu( anEcu ), _is_On( false ), _slot_periods( false ), _slot_periods_on( false ), _state( 0 ),
-   _periods_count( 0 ), _periods_on_count( 0 ), _periods_on_usecs( 0 )
+   _periods_count( 0 ), _periods_on_count( 0 ), _periods_on_usecs( 0 ), _ints( 0 )
 {
+  memset( _periods, 0, sizeof( _periods ) );
+  memset( _periods_on, 0, sizeof( _periods_on ) );
+  
   pinMode( PIN_INJECTOR, INPUT_PULLUP );
 }
 
 void Injector::read()
 {
+  ++_ints;
+  
   int theState( digitalRead( PIN_INJECTOR ) );
   
   if( theState == LOW )
@@ -37,18 +42,19 @@ void Injector::read()
   {
     if( !_is_On )
     {
+      _periods_on_usecs = micros();
+    }
+    if( _is_On )
+    {
       ++_periods_count;
 
-      _periods_on_usecs = micros();
-      
-      _periods[ _slot_periods ]._usecs = _periods_on_usecs;
+      _periods[ _slot_periods ]._usecs = micros();
       _periods[ _slot_periods ]._count = _periods_count;
-    }
-    else
-    {
+
+
       ++_periods_on_count;
       
-      _periods_on[ _slot_periods_on ]._usecs += ( micros() - _periods_on_usecs );
+      _periods_on[ _slot_periods_on ]._usecs += ( _periods[ _slot_periods ]._usecs - _periods_on_usecs );
       _periods_on[ _slot_periods_on ]._count = _periods_on_count;
     }
 
@@ -80,16 +86,14 @@ void Injector::read_periods_on( Periods& aPeriods )
   {
     Periods theLastPeriods( _periods_on[ !_slot_periods_on ] );
     
-    _periods_on[ !_slot_periods_on ]._count = 0;
+    _periods_on[ !_slot_periods_on ]._usecs = 0;
     
     _slot_periods_on = !_slot_periods_on;
 
-    if( theLastPeriods._count )
+    if( theLastPeriods._usecs )
     {
        aPeriods._usecs = _periods_on[ !_slot_periods_on ]._usecs;
        aPeriods._count = ( _periods_on[ !_slot_periods_on ]._count - theLastPeriods._count );
-
-       _periods_on[ !_slot_periods_on ]._usecs = 0;
     }
   }
 }

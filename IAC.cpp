@@ -13,7 +13,7 @@
 #define IAC_I_MAX 50
 #define IAC_D_MAX 50
 
-#define IAC_START_POS 1000
+#define IAC_START_POS 2000
 #define IAC_SPEED 700
 
 IAC::IAC( ECU& anECU ) :
@@ -137,7 +137,8 @@ void IAC::reset()
 {
   _state = sResetting;
 
-  _stepper.move( - _stepper.currentPosition() - 300 );
+  //_stepper.move( -IAC_MAX_STEPS );
+  _stepper.move( -_stepper.currentPosition() - 300 );
   _stepper.setSpeed( IAC_SPEED );
 }
 
