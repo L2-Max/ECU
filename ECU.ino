@@ -56,15 +56,15 @@ void simulator()
   static volatile unsigned long g_NextHIGH( 0 );
   static volatile unsigned long g_HIGHCount( 0 );
 
-  static unsigned long g_Stimer( 200 );
-  static unsigned long g_Delay( 1000000. / ( 1600. / 60. / 2. ) );
+  static unsigned long g_Stimer( 1000 );
+  static unsigned long g_Delay( 1000000. / ( 5000. / 60. / 2. ) );
   static unsigned short g_Off_Delay( 200 );
   
   unsigned long theNow( micros() );
 
   if( g_Off_Delay )
   {
-    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay )
+    if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= g_Delay )
     {
       if( g_Stimer )
       {
@@ -82,13 +82,13 @@ void simulator()
       
       ++g_HIGHCount;
       
-      g_PinState = LOW;
+      g_PinState = HIGH;
       
       digitalWrite( 5, g_PinState );
     }
-    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 1000 )
+    else if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= ( g_Delay - 1000 ) )
     {
-      g_PinState = HIGH;
+      g_PinState = LOW;
       
       digitalWrite( 5, g_PinState );
     }
@@ -153,10 +153,7 @@ void loop()
 
       Serial.println();
 
-      Serial.print( "int" );
-      Serial.print( g_ECU->_injector._ints );
-
-      Serial.print( "\tpw" );
+      Serial.print( "pw" );
       Serial.print( g_ECU->_periods_on_average.average() );
 
       Serial.print( "\tlh" );

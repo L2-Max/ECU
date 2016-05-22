@@ -13,7 +13,7 @@ struct Periods
     _usecs = 0;
   }
   
-  volatile unsigned short _count;
+  volatile unsigned long _count;
   volatile unsigned long _usecs;
 };
 

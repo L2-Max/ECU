@@ -11,9 +11,6 @@ Injector::Injector( ECU& anEcu ) :
    _ecu( anEcu ), _is_On( false ), _slot_periods( false ), _slot_periods_on( false ), _state( 0 ),
    _periods_count( 0 ), _periods_on_count( 0 ), _periods_on_usecs( 0 ), _ints( 0 )
 {
-  memset( _periods, 0, sizeof( _periods ) );
-  memset( _periods_on, 0, sizeof( _periods_on ) );
-  
   pinMode( PIN_INJECTOR, INPUT_PULLUP );
 }
 
@@ -66,16 +63,16 @@ void Injector::read_periods( Periods& aPeriods )
   if( _periods[ _slot_periods ]._count )
   {
     Periods theLastPeriods( _periods[ !_slot_periods ] );
-    
+
+    _periods[ !_slot_periods ]._count = 0;
+    _periods[ !_slot_periods ]._usecs = 0;
+
     _slot_periods = !_slot_periods;
 
     if( theLastPeriods._count )
     {
-       aPeriods._usecs = ( _periods[ !_slot_periods ]._usecs - theLastPeriods._usecs );
-       aPeriods._count = ( _periods[ !_slot_periods ]._count - theLastPeriods._count );
-
-       _periods[ !_slot_periods ]._usecs = 0;
-       _periods[ !_slot_periods ]._count = 0;
+      aPeriods._usecs = ( _periods[ !_slot_periods ]._usecs - theLastPeriods._usecs );
+      aPeriods._count = ( _periods[ !_slot_periods ]._count - theLastPeriods._count );
     }
   }
 }
@@ -87,6 +84,7 @@ void Injector::read_periods_on( Periods& aPeriods )
     Periods theLastPeriods( _periods_on[ !_slot_periods_on ] );
     
     _periods_on[ !_slot_periods_on ]._usecs = 0;
+    _periods_on[ !_slot_periods_on ]._count = 0;
     
     _slot_periods_on = !_slot_periods_on;
 
