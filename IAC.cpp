@@ -19,7 +19,7 @@
 IAC::IAC( ECU& anECU ) :
   _ecu( anECU ), _last_control( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
   _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 12, 10, 11, 8 ),
-  _state( sReady )
+  _state( sReady ), _is_Enabled( false )
 {
   _stepper.setMaxSpeed( 2000. );
   _stepper.setAcceleration( 1000. );
@@ -68,7 +68,7 @@ void IAC::control_RPM( unsigned long aNow_MS )
     
     if( _state == sReady )
     {
-      if( _ecu._state == ECU::sIdling )
+      if( _is_Enabled )
       {
         short theError( ( _ecu._rpm_target - _ecu._rpm ) );
 
@@ -137,8 +137,17 @@ void IAC::reset()
 {
   _state = sResetting;
 
-  //_stepper.move( -IAC_MAX_STEPS );
-  _stepper.move( -_stepper.currentPosition() - 300 );
+#ifdef ECU_SYSTEM_RESET
+  _stepper.move( -IAC_MAX_STEPS );
+#else
+  _stepper.move( -_stepper.currentPosition() - 200 );
+#endif
+
   _stepper.setSpeed( IAC_SPEED );
+}
+
+void IAC::Set_Enabled( bool anEnabled )
+{
+  _is_Enabled = anEnabled;
 }
 

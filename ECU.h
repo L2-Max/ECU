@@ -10,6 +10,8 @@
 
 #include "Average.h"
 
+//#define ECU_SYSTEM_RESET
+
 struct ECU
 {
   enum E_State
@@ -17,8 +19,6 @@ struct ECU
     sInit,
     sUninit,
     sWforEstarting,
-    sWforEgetsSrpm,
-    sWforEidlingAstartup,
     sIdling,
     sRunning,
     sResetting
@@ -52,8 +52,6 @@ struct ECU
   void uninit();
 
   void wait_for_engine_starting();
-  void wait_for_engine_gets_startup_rpm();
-  void wait_for_engine_idling_after_startup();
 
   void engine_idling();
 
@@ -66,8 +64,6 @@ struct ECU
   
   unsigned char _rpm_zero_counter;
   unsigned char _periods_on_zero_counter;
-
-  bool _last_tps_state;
 
   unsigned short _last_idle_steps;
   unsigned long _last_sample_usecs;

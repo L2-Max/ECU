@@ -11,7 +11,7 @@ Injector::Injector( ECU& anEcu ) :
    _ecu( anEcu ), _is_On( false ), _slot_periods( false ), _slot_periods_on( false ), _state( 0 ),
    _periods_count( 0 ), _periods_on_count( 0 ), _periods_on_usecs( 0 ), _ints( 0 )
 {
-  pinMode( PIN_INJECTOR, INPUT_PULLUP );
+  pinMode( PIN_INJECTOR, INPUT );
 }
 
 void Injector::read()

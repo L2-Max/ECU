@@ -26,6 +26,8 @@ struct IAC
   void run();
   void reset();
 
+  void Set_Enabled( bool anEnabled );
+
   ECU& _ecu;
   
   AccelStepper _stepper;
@@ -42,6 +44,8 @@ struct IAC
   short _derivative;
 
   unsigned long _last_control;
+
+  bool _is_Enabled;
 };
 
 #endif

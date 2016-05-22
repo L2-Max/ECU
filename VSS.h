@@ -11,11 +11,17 @@ struct VSS
   ~VSS();
 
   void read();
+  void read_Speed( unsigned long aNow_MS );
 
-  uint32_t _pulses_h;
-  uint32_t _pulses_l;
+  uint32_t _pulses_total;
 
-  uint32_t _meters;
+  volatile uint32_t _pulses[ 2 ];
+  volatile bool _slot_pulses;
+  
+  float _meters;
+  uint32_t _speed;
+
+  uint32_t _next_sample_ms;
 };
 
 #endif
