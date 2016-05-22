@@ -44,13 +44,12 @@ void Injector::read()
     {
       _periods_on_usecs = micros();
     }
-    if( _is_On )
+    else
     {
       ++_periods_count;
 
       _periods[ _slot_periods ]._usecs = micros();
       _periods[ _slot_periods ]._count = _periods_count;
-
 
       ++_periods_on_count;
       
@@ -68,14 +67,15 @@ void Injector::read_periods( Periods& aPeriods )
   {
     Periods theLastPeriods( _periods[ !_slot_periods ] );
     
-    _periods[ !_slot_periods ]._count = 0;
-    
     _slot_periods = !_slot_periods;
 
     if( theLastPeriods._count )
     {
        aPeriods._usecs = ( _periods[ !_slot_periods ]._usecs - theLastPeriods._usecs );
        aPeriods._count = ( _periods[ !_slot_periods ]._count - theLastPeriods._count );
+
+       _periods[ !_slot_periods ]._usecs = 0;
+       _periods[ !_slot_periods ]._count = 0;
     }
   }
 }

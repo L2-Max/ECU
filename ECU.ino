@@ -43,8 +43,6 @@ void setup()
   pinMode( 5, OUTPUT );
 }
 
-unsigned long g_Cycles( 0 );
-
 unsigned long g_LastMS( 0 );
 unsigned long g_NextMS( 0 );
 
@@ -59,23 +57,27 @@ void simulator()
   static volatile unsigned long g_HIGHCount( 0 );
 
   static unsigned long g_Stimer( 200 );
-  static unsigned long g_Delay( 19000 );
-  static unsigned short g_Off_Delay( 300 );
+  static unsigned long g_Delay( 1000000. / ( 1600. / 60. / 2. ) );
+  static unsigned short g_Off_Delay( 200 );
   
   unsigned long theNow( micros() );
 
   if( g_Off_Delay )
   {
-    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay * 4 )
+    if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= g_Delay )
     {
       if( g_Stimer )
       {
         if( !--g_Stimer )
         {
-          g_Delay = 29990;
+          g_Delay = 1000000. / ( 1000. / 60. / 2. );
         }
       }
-      
+      else
+      {
+        --g_Off_Delay;
+      }
+
       g_NextHIGH = theNow;
       
       ++g_HIGHCount;
@@ -84,13 +86,11 @@ void simulator()
       
       digitalWrite( 5, g_PinState );
     }
-    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 4000 )
+    else if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= 1000 )
     {
       g_PinState = HIGH;
       
       digitalWrite( 5, g_PinState );
-
-      --g_Off_Delay;
     }
   }
 }
@@ -102,16 +102,11 @@ void loop()
     g_ECU = new ECU();
   }
   
-  for( ; !g_Reset ; )
+  for( uint32_t I_cycle( 0 ); !g_Reset ; ++I_cycle )
   {
     //simulator();
     
     unsigned long theNow( millis() );
-
-    if( theNow < 3000 )
-    {
-      //continue;
-    }
 
     g_ECU->run( theNow );
 
@@ -126,7 +121,7 @@ void loop()
       Serial.println();
       
       Serial.print( "c" );
-      Serial.print( g_Cycles / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
+      Serial.print( float( I_cycle ) / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
 
       Serial.print( "\te" );
       Serial.print( g_ECU->_iac._last_error );
@@ -194,10 +189,8 @@ void loop()
 
       g_Display_MS = ( millis() - g_LastMS );
       
-      g_Cycles = 0;
+      I_cycle = 0;
     }
-
-    ++g_Cycles;
   }
 
   delete g_ECU;
@@ -253,6 +246,8 @@ void ECU::run( unsigned long aNow_MS )
 {
   if( aNow_MS >= _last_sample_usecs )
   {
+    _last_sample_usecs = ( aNow_MS + ECU_SAMPLING_MS );
+    
     read_RPM( aNow_MS );
     read_Fueling( aNow_MS );
 
@@ -265,11 +260,14 @@ void ECU::run( unsigned long aNow_MS )
     ( this->*_state_handler )();
 
     _iac.control_RPM( aNow_MS );
-
-    _last_sample_usecs = ( aNow_MS + ECU_SAMPLING_MS );
   }
 
-  _iac.run();
+  static uint8_t g_IAC_Run( 0 );
+
+  if( !--g_IAC_Run )
+  {
+     _iac.run();
+  }
 }
 
 void ECU::init()

@@ -14,6 +14,8 @@ struct VSS
 
   uint32_t _pulses_h;
   uint32_t _pulses_l;
+
+  uint32_t _meters;
 };
 
 #endif

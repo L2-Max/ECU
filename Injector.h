@@ -10,9 +10,10 @@ struct Periods
   Periods()
   {
     _count = 0;
+    _usecs = 0;
   }
   
-  volatile unsigned long _count;
+  volatile unsigned short _count;
   volatile unsigned long _usecs;
 };
 

@@ -5,6 +5,8 @@
 #include <EEPROM.h>
 #include <Arduino.h>
 
+#define VSS_PULSE_PER_METER 29.645
+
 VSS::VSS() : _pulses_h( 0 ), _pulses_l( 0 )
 {
   EEPROM.get( ECU_VSS_PULSES_H, _pulses_h );
