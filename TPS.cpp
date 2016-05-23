@@ -7,7 +7,7 @@
 #define TPS_SAMPLING_MS 100
 #define TPS_VALUE_CLOSED 520.
 
-TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 3 )
+TPS::TPS() : _next_sample_ms( 0 ), _value( 0 ), _value_average( 3 )
 {
   pinMode( PIN_TPS, INPUT );
   //pinMode( A1, INPUT );
@@ -16,9 +16,9 @@ TPS::TPS() : _last_sample( 0 ), _value( 0 ), _value_average( 3 )
 
 void TPS::read( unsigned long aNow_MS )
 {
-  if( aNow_MS >= _last_sample )
+  if( aNow_MS >= _next_sample_ms )
   {
-    _last_sample = ( aNow_MS + TPS_SAMPLING_MS );
+    _next_sample_ms = ( aNow_MS + TPS_SAMPLING_MS );
 
     _value_average.push( analogRead( PIN_TPS ) / 1023. * 5000. /*read_Vcc()*/ );
     _value = _value_average.average();

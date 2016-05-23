@@ -215,7 +215,7 @@ void loop()
 #define ECU_RPM_IDLE_TOLERANCE 25
 
 ECU::ECU() :
-  _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _last_sample_usecs( 0 ),
+  _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _next_sample_ms( 0 ),
   _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
   _last_idle_steps( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 ), _total_periods_on( 0 )
@@ -254,9 +254,9 @@ void ECU::Iterrupt_VSS_Change()
 
 void ECU::run( unsigned long aNow_MS )
 {
-  if( aNow_MS >= _last_sample_usecs )
+  if( aNow_MS >= _next_sample_ms )
   {
-    _last_sample_usecs = ( aNow_MS + ECU_SAMPLING_MS );
+    _next_sample_ms = ( aNow_MS + ECU_SAMPLING_MS );
     
     read_RPM( aNow_MS );
     read_Fueling( aNow_MS );
@@ -324,18 +324,15 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 10 )
+    if( !_tps._isOpen && _vss._speed < 5 )
     {
-      //if( _rpm >= ( ECU_RPM_IDLE - 500 ) && _rpm <= ( ECU_RPM_IDLE + 1200 ) )
+      _state = sIdling;
+
+      _iac.Set_Enabled( true );
+
+      if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
       {
-        _state = sIdling;
-
-        _iac.Set_Enabled( true );
-
-        if( _rpm >= ( ECU_RPM_IDLE - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( ECU_RPM_IDLE + ECU_RPM_IDLE_TOLERANCE ) )
-        {
-          _last_idle_steps = _iac._stepper.currentPosition();
-        }
+        _last_idle_steps = _iac._stepper.currentPosition();
       }
     }
     else
@@ -349,7 +346,14 @@ void ECU::engine_idling()
     {
       if( _last_idle_steps )
       {
-        _iac.stepTo( _last_idle_steps + 300 );
+        if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
+        {
+          _iac.stepTo( _last_idle_steps + 400 );
+        }
+        else
+        {
+          _iac.stepTo( _last_idle_steps );
+        }
       }
     }
   }

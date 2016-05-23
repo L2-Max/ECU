@@ -17,11 +17,11 @@
 #define IAC_SPEED 700
 
 IAC::IAC( ECU& anECU ) :
-  _ecu( anECU ), _last_control( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
+  _ecu( anECU ), _next_control_ms( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
   _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 12, 10, 11, 8 ),
   _state( sReady ), _is_Enabled( false )
 {
-  _stepper.setMaxSpeed( 2000. );
+  _stepper.setMaxSpeed( 1000. );
   _stepper.setAcceleration( 1000. );
 
   _stepper.setCurrentPosition( IAC_START_POS );
@@ -62,9 +62,9 @@ void IAC::stepTo( unsigned short aSteps )
 
 void IAC::control_RPM( unsigned long aNow_MS )
 {
-  if( aNow_MS >= _last_control )
+  if( aNow_MS >= _next_control_ms )
   {
-    _last_control = ( aNow_MS + IAC_CONTROL_MS );
+    _next_control_ms = ( aNow_MS + IAC_CONTROL_MS );
     
     if( _state == sReady )
     {

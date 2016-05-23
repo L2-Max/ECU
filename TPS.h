@@ -16,7 +16,7 @@ struct TPS
   
   unsigned short _value;
 
-  unsigned long _last_sample;
+  unsigned long _next_sample_ms;
 };
 
 #endif

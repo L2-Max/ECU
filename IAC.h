@@ -43,7 +43,7 @@ struct IAC
   short _integral;
   short _derivative;
 
-  unsigned long _last_control;
+  unsigned long _next_control_ms;
 
   bool _is_Enabled;
 };

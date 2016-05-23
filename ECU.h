@@ -66,7 +66,7 @@ struct ECU
   unsigned char _periods_on_zero_counter;
 
   unsigned short _last_idle_steps;
-  unsigned long _last_sample_usecs;
+  unsigned long _next_sample_ms;
 
   uint64_t _total_periods_on;
 };
