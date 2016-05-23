@@ -2,7 +2,7 @@
 
 #include "EEPROM_Defs.h"
 
-//#include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
 #define ECU_SAMPLING_MS 50
@@ -11,7 +11,7 @@
 
 #define ECU_POWER_PIN 4
 
-//LiquidCrystal_I2C g_lcd( 0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
+LiquidCrystal_I2C g_lcd( 0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
 
 ECU* g_ECU( 0 );
 
@@ -19,28 +19,28 @@ void setup()
 {
   Serial.begin( 250000 );
 
+#ifdef ECU_SYSTEM_RESET
   for( int i( 0 ); i < EEPROM.length() ; i++ )
   {
-#ifdef ECU_SYSTEM_RESET
     EEPROM.write( i, 0 );
-#endif
   }
+#endif
   
-/*  g_lcd.begin(16,2);
-
+  g_lcd.begin(16,2);
   g_lcd.home ();
-  g_lcd.print( "   Hello!" );  
+  g_lcd.print( "   Hello!" ); 
+  
   g_lcd.setCursor( 0, 1 );
 
   g_lcd.print( "     l2ECU" );
 
-  delay( 1000 );
+  delay( 2000 );
 
   g_lcd.home();
   g_lcd.clear();
 
   pinMode( 8, OUTPUT );
-  digitalWrite( 8, LOW );*/
+  digitalWrite( 8, LOW );
 
   pinMode( 5, OUTPUT );
 }
@@ -117,69 +117,85 @@ void loop()
       g_NextMS = ( theNow + DISPLAY_INTERVAL_MS - ( theNow - g_NextMS ) );
       g_LastMS = millis();
       
-      //g_lcd.home();
-      //g_lcd.clear();
-
       Serial.println();
       
-      Serial.print( "c" );
+      Serial.print( F( "c" ) );
       Serial.print( float( I_cycle ) / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
 
-      Serial.print( "\te" );
+      Serial.print( F( "\te" ) );
       Serial.print( g_ECU->_iac._last_error );
       
-      Serial.print( "\ti" );
+      Serial.print( F( "\ti" ) );
       Serial.print( g_ECU->_iac._integral );
 
-      Serial.print( "\td" );
+      Serial.print( F( "\td" ) );
       Serial.print( g_ECU->_iac._derivative );
 
-      Serial.print( "\tr_m" );
+      Serial.print( F( "\tr_m" ) );
       Serial.print( g_ECU->_rpm_max );
 
       Serial.println();
       
-      //g_lcd.setCursor( 0, 1 );
-
-      Serial.print( "r" );
+      Serial.print( F( "r" ) );
       Serial.print( g_ECU->_rpm );
 
-      Serial.print( "\tt" );
+      Serial.print( F( "\tt" ) );
       Serial.print( g_ECU->_rpm_target );
 
-      Serial.print( "\tp" );
+      Serial.print( F( "\tp" ) );
       Serial.print( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
 
-      Serial.print( "\ts" );
+      Serial.print( F( "\ts" ) );
       Serial.print( g_ECU->_state );
 
       Serial.println();
 
-      Serial.print( "pw" );
+      Serial.print( F( "pw" ) );
       Serial.print( g_ECU->_periods_on_average.average() );
 
-      Serial.print( "\tlh" );
+      Serial.print( F( "\tlh" ) );
       Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
 
-      Serial.print( "\tlt" );
+      Serial.print( F( "\tlt" ) );
       Serial.print( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
       
       Serial.println();
 
-      Serial.print( "tps" );
+      Serial.print( F( "tps" ) );
       Serial.print( g_ECU->_tps._value );
 
-      Serial.print( "\tect" );
+      Serial.print( F( "\tect" ) );
       Serial.print( g_ECU->_ect._temperature );
 
-      Serial.print( "\tmap" );
+      Serial.print( F( "\tmap" ) );
       Serial.print( g_ECU->_map._pressure );
 
-      Serial.print( "\ts" );
+      Serial.print( F( "\ts" ) );
       Serial.print( g_ECU->_vss._speed );
 
-      Serial.print( "\td" );
+      Serial.print( F( "\td" ) );
       Serial.println( g_ECU->_vss._meters );
+
+      /////////////////////////////////////////////////////////
+      g_lcd.home();
+      g_lcd.clear();
+
+      g_lcd.print( F( "c" ) );
+      g_lcd.print( I_cycle / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
+      
+      g_lcd.print( F( " tps" ) );
+      g_lcd.print( g_ECU->_tps._value );
+
+      g_lcd.setCursor( 0, 1 );
+
+      g_lcd.print( F( "s" ) );
+      g_lcd.print( g_ECU->_vss._speed );
+
+      g_lcd.print( F( " m" ) );
+      g_lcd.print( g_ECU->_vss._meters );
+
+      g_lcd.print( F( " r" ) );
+      g_lcd.print( g_ECU->_rpm );
 
       g_Display_MS = ( millis() - g_LastMS );
       
