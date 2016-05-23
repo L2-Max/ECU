@@ -2,7 +2,7 @@
 
 #include "EEPROM_Defs.h"
 
-#include <LiquidCrystal_I2C.h>
+//#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
 #define ECU_SAMPLING_MS 50
@@ -11,7 +11,7 @@
 
 #define ECU_POWER_PIN 4
 
-LiquidCrystal_I2C g_lcd( 0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
+//LiquidCrystal_I2C g_lcd( 0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
 
 ECU* g_ECU( 0 );
 
@@ -26,7 +26,7 @@ void setup()
   }
 #endif
   
-  g_lcd.begin(16,2);
+  /*g_lcd.begin(16,2);
   g_lcd.home ();
   g_lcd.print( "   Hello!" ); 
   
@@ -37,7 +37,7 @@ void setup()
   delay( 2000 );
 
   g_lcd.home();
-  g_lcd.clear();
+  g_lcd.clear();*/
 
   pinMode( 8, OUTPUT );
   digitalWrite( 8, LOW );
@@ -59,7 +59,7 @@ void simulator()
   static volatile unsigned long g_HIGHCount( 0 );
 
   static unsigned long g_Stimer( 1000 );
-  static unsigned long g_Delay( 1000000. / ( 5000. / 60. / 2. ) );
+  static unsigned long g_Delay( 1000000. / ( 1000. / 60. / 2. ) );
   static unsigned short g_Off_Delay( 200 );
   
   unsigned long theNow( micros() );
@@ -70,9 +70,9 @@ void simulator()
     {
       if( g_Stimer )
       {
-        if( !--g_Stimer )
+        //if( !--g_Stimer )
         {
-          g_Delay = 1000000. / ( 1000. / 60. / 2. );
+         // g_Delay = 1000000. / ( 1000. / 60. / 2. );
         }
       }
       else
@@ -174,10 +174,10 @@ void loop()
       Serial.print( g_ECU->_vss._speed );
 
       Serial.print( F( "\td" ) );
-      Serial.println( g_ECU->_vss._meters );
+      Serial.println( g_ECU->_vss._meters / 1000., 3 );
 
       /////////////////////////////////////////////////////////
-      g_lcd.home();
+      /*g_lcd.home();
       g_lcd.clear();
 
       g_lcd.print( F( "c" ) );
@@ -195,7 +195,7 @@ void loop()
       g_lcd.print( g_ECU->_vss._meters );
 
       g_lcd.print( F( " r" ) );
-      g_lcd.print( g_ECU->_rpm );
+      g_lcd.print( g_ECU->_rpm );*/
 
       g_Display_MS = ( millis() - g_LastMS );
       
@@ -210,12 +210,13 @@ void loop()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////
-#define ECU_IDLE_RPM 1000
-#define ECU_RPM_TOLERANCE 25
+#define ECU_RPM_IDLE 1000
+#define ECU_RPM_WARMUP 1800
+#define ECU_RPM_IDLE_TOLERANCE 25
 
 ECU::ECU() :
-  _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_IDLE_RPM ), _last_sample_usecs( 0 ),
-  _rpm_average( 1 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _last_sample_usecs( 0 ),
+  _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
   _last_idle_steps( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 ), _total_periods_on( 0 )
 {
@@ -323,27 +324,21 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen )
+    if( !_tps._isOpen && _vss._speed < 10 )
     {
-      if( _rpm >= ( ECU_IDLE_RPM - 500 ) && _rpm <= ( ECU_IDLE_RPM + 1200 ) || !_vss._speed )
+      //if( _rpm >= ( ECU_RPM_IDLE - 500 ) && _rpm <= ( ECU_RPM_IDLE + 1200 ) )
       {
         _state = sIdling;
 
         _iac.Set_Enabled( true );
 
-        if( _rpm >= ( ECU_IDLE_RPM - 50 ) && _rpm <= ( ECU_IDLE_RPM + 50 ) )
+        if( _rpm >= ( ECU_RPM_IDLE - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( ECU_RPM_IDLE + ECU_RPM_IDLE_TOLERANCE ) )
         {
           _last_idle_steps = _iac._stepper.currentPosition();
         }
       }
-      else if( _rpm >= ( ECU_IDLE_RPM + 200 ) )
-      {
-        _state = sRunning;
-
-        _iac.Set_Enabled( false );
-      }
     }
-    else if( _tps._isOpen )
+    else
     {
       _state = sRunning;
 
@@ -354,7 +349,7 @@ void ECU::engine_idling()
     {
       if( _last_idle_steps )
       {
-        _iac.stepTo( _last_idle_steps + 400 );
+        _iac.stepTo( _last_idle_steps + 300 );
       }
     }
   }
@@ -370,19 +365,15 @@ void ECU::calculate_target_RPM( unsigned long aNow )
 {
   if( _ect._temperature > 30 )
   {
-    _rpm_target = ECU_IDLE_RPM;
+    _rpm_target = ECU_RPM_IDLE;
   }
-  else if( _ect._temperature > 20 )
+  else if( _ect._temperature > 0 )
   {
-    _rpm_target = 1200;
-  }
-  else if( _ect._temperature > 10 )
-  {
-    _rpm_target = 1500;
+    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 30. * _ect._temperature ) );
   }
   else
   {
-    _rpm_target = 1800;
+    _rpm_target = ECU_RPM_WARMUP;
   }
 }
 

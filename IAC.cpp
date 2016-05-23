@@ -13,7 +13,7 @@
 #define IAC_I_MAX 50
 #define IAC_D_MAX 50
 
-#define IAC_START_POS 2000
+#define IAC_START_POS 2500
 #define IAC_SPEED 700
 
 IAC::IAC( ECU& anECU ) :

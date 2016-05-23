@@ -5,6 +5,18 @@
 
 #define PIN_VSS 3
 
+struct Pulses
+{
+  Pulses()
+  {
+    _usecs = 0;
+    _count = 0;
+  }
+  
+  volatile uint32_t _usecs;
+  volatile uint32_t _count;
+};
+
 struct VSS
 {
   VSS();
@@ -13,10 +25,13 @@ struct VSS
   void read();
   void read_Speed( unsigned long aNow_MS );
 
+  volatile bool _slot_pulses;
+
   uint32_t _pulses_total;
 
-  volatile uint32_t _pulses[ 2 ];
-  volatile bool _slot_pulses;
+  Pulses _pulses[ 2 ];
+  
+  bool _is_On;
   
   float _meters;
   uint32_t _speed;
