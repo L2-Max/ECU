@@ -70,9 +70,9 @@ void simulator()
     {
       if( g_Stimer )
       {
-        //if( !--g_Stimer )
+        if( !--g_Stimer )
         {
-         // g_Delay = 1000000. / ( 1000. / 60. / 2. );
+          g_Delay = 1000000. / ( 1000. / 60. / 2. );
         }
       }
       else
@@ -173,7 +173,7 @@ void loop()
       Serial.print( F( "\ts" ) );
       Serial.print( g_ECU->_vss._speed );
 
-      Serial.print( F( "\td" ) );
+      Serial.print( F( "\tkm" ) );
       Serial.println( g_ECU->_vss._meters / 1000., 3 );
 
       /////////////////////////////////////////////////////////
@@ -324,7 +324,7 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 5 )
+    if( !_tps._isOpen && _vss._speed < 10 )
     {
       _state = sIdling;
 
@@ -348,7 +348,7 @@ void ECU::engine_idling()
       {
         if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
         {
-          _iac.stepTo( _last_idle_steps + 400 );
+          _iac.stepTo( _last_idle_steps + 500 );
         }
         else
         {
@@ -367,13 +367,13 @@ void ECU::engine_idling()
 
 void ECU::calculate_target_RPM( unsigned long aNow )
 {
-  if( _ect._temperature > 30 )
+  if( _ect._temperature > 35 )
   {
     _rpm_target = ECU_RPM_IDLE;
   }
-  else if( _ect._temperature > 0 )
+  else if( _ect._temperature > 10 )
   {
-    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 30. * _ect._temperature ) );
+    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 25. * ( _ect._temperature - 10 ) ) );
   }
   else
   {
