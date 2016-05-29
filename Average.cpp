@@ -42,7 +42,7 @@ T Average< T >::average()const
 
   if( _count )
   {
-    ret = _sum / _count;
+    ret = float( _sum ) / _count;
   }
   
   return ret;

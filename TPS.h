@@ -3,6 +3,8 @@
 
 #include "Average.h"
 
+#include <Arduino.h>
+
 struct ECU;
 
 struct TPS
@@ -17,10 +19,15 @@ struct TPS
 
   bool _isOpen;
 
+  Average< unsigned short > _value_average;
+  
   short _value;
   short _value_last;
   short _value_closed;
   short _value_jitter_counter;
+
+  uint16_t _counter_close;
+  uint16_t _counter_open;
 
   unsigned long _next_sample_ms;
 };

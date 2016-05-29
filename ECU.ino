@@ -197,11 +197,20 @@ void loop()
       Serial.print( F( "\tV " ) );
       Serial.print( g_ECU->_tps._value );
 
+      Serial.print( F( "\tV_A " ) );
+      Serial.print( g_ECU->_tps._value_average.average() );
+
       Serial.print( F( "\tV_C " ) );
       Serial.print( g_ECU->_tps._value_closed );
 
       Serial.print( F( "\tSTATE " ) );
       Serial.println( g_ECU->_tps._isOpen );
+
+      Serial.print( F( "\tO " ) );
+      Serial.print( g_ECU->_tps._counter_open );
+
+      Serial.print( F( "\tC " ) );
+      Serial.println( g_ECU->_tps._counter_close );
 
       Serial.print( F( "ECT" ) );
 
@@ -401,7 +410,7 @@ void ECU::engine_idling()
       
       if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
       {
-        _iac.stepTo( _last_idle_position + 500 );
+        _iac.stepTo( _last_idle_position + 300 );
       }
       else
       {
