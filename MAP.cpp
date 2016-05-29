@@ -20,6 +20,6 @@ void MAP::read( unsigned long aNow_MS )
   {
     _last_sample = ( aNow_MS + MAP_SAMPLING_MS );
 
-    _pressure = ( analogRead( PIN_MAP ) / 1023. * 103. );
+    _pressure = ( analogRead( PIN_MAP ) / 1023. * 175. );
   }
 }

@@ -164,6 +164,12 @@ void loop()
       Serial.print( F( "tps" ) );
       Serial.print( g_ECU->_tps._value );
 
+      Serial.print( F( "\ttps_c" ) );
+      Serial.print( g_ECU->_tps._value_closed );
+
+      Serial.print( F( "\ttps_s " ) );
+      Serial.print( g_ECU->_tps._isOpen );
+
       Serial.print( F( "\tect" ) );
       Serial.print( g_ECU->_ect._temperature );
 
@@ -175,6 +181,35 @@ void loop()
 
       Serial.print( F( "\tkm" ) );
       Serial.println( g_ECU->_vss._meters / 1000., 3 );
+
+      if( Serial.available() )
+      {
+        String theStr( Serial.readString() );
+        String theK( theStr.substring( 0, 1 ) );
+        float theVal( theStr.substring( 1 ).toFloat() );
+
+        if( theK == "p" )
+        {
+          g_ECU->_iac._Kp = theVal;
+        }
+        else if( theK == "i" )
+        {
+          g_ECU->_iac._Ki = theVal;
+        }
+        else if( theK == "d" )
+        {
+          g_ECU->_iac._Kd = theVal;
+        }
+      }
+
+      Serial.print( "Kp" );
+      Serial.print( g_ECU->_iac._Kp );
+
+      Serial.print( " Ki" );
+      Serial.print( g_ECU->_iac._Ki );
+
+      Serial.print( " Kd" );
+      Serial.println( g_ECU->_iac._Kd );
 
       /////////////////////////////////////////////////////////
       /*g_lcd.home();
@@ -215,9 +250,9 @@ void loop()
 #define ECU_RPM_IDLE_TOLERANCE 25
 
 ECU::ECU() :
-  _iac( *this ), _injector( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _next_sample_ms( 0 ),
-  _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
-  _last_idle_steps( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
+  _iac( *this ), _injector( *this ), _tps( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _next_sample_ms( 0 ),
+  _rpm_average( 5 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _last_idle_position( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
   _rpm_max( 0 ), _total_periods_on( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
@@ -225,10 +260,9 @@ ECU::ECU() :
   attachInterrupt( digitalPinToInterrupt( PIN_INJECTOR ), ECU::Iterrupt_Injector_Change, CHANGE );
   attachInterrupt( digitalPinToInterrupt( PIN_VSS ), ECU::Iterrupt_VSS_Change, CHANGE );
 
-  if( !EEPROM.read( ECU_RESET_FLAG_ADDR ) )
-  {
-    _iac.reset();
-  }
+#ifdef ECU_SYSTEM_RESET
+  _iac.reset();
+#endif
 
   EEPROM.get( ECU_MPG_TOTAL_ADDR, _total_periods_on );
   EEPROM.get( ECU_MAX_RPM, _rpm_max );
@@ -289,8 +323,6 @@ void ECU::init()
   if( _iac._state == IAC::sReady )
   {
     _state_handler = &ECU::wait_for_engine_starting;
-  
-    EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
   }
 }
 
@@ -300,8 +332,6 @@ void ECU::uninit()
   
   if( _iac._state == IAC::sReady )
   {
-    EEPROM.update( ECU_RESET_FLAG_ADDR, 1 );
-
     g_Reset = true;
   }
 }
@@ -313,9 +343,7 @@ void ECU::wait_for_engine_starting()
   if( _rpm > 500 )
   {
     _state_handler = &ECU::engine_idling;
-
-    EEPROM.update( ECU_RESET_FLAG_ADDR, 0 );
-
+    
     digitalWrite( ECU_POWER_PIN, HIGH );
   }
 }
@@ -324,7 +352,7 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 10 )
+    if( !_tps._isOpen && _vss._speed < 12 )
     {
       _state = sIdling;
 
@@ -332,7 +360,7 @@ void ECU::engine_idling()
 
       if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
       {
-        _last_idle_steps = _iac._stepper.currentPosition();
+        _last_idle_position = _iac._stepper.currentPosition();
       }
     }
     else
@@ -344,23 +372,20 @@ void ECU::engine_idling()
 
     if( _state == sRunning )
     {
-      if( _last_idle_steps )
+      if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
       {
-        if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
-        {
-          _iac.stepTo( _last_idle_steps + 500 );
-        }
-        else
-        {
-          _iac.stepTo( _last_idle_steps );
-        }
+        _iac.stepTo( _last_idle_position + 1000 );
+      }
+      else
+      {
+        _iac.stepTo( _last_idle_position );
       }
     }
   }
   else
   {
     _iac.reset();
-
+  
     _state_handler = &ECU::uninit;
   }
 }
@@ -371,9 +396,9 @@ void ECU::calculate_target_RPM( unsigned long aNow )
   {
     _rpm_target = ECU_RPM_IDLE;
   }
-  else if( _ect._temperature > 10 )
+  else if( _ect._temperature > 0 )
   {
-    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 25. * ( _ect._temperature - 10 ) ) );
+    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 46.6 * _ect._temperature ) );
   }
   else
   {

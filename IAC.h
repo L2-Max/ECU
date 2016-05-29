@@ -34,9 +34,9 @@ struct IAC
 
   EState _state;
   
-  const float _Kp = 1;
-  const float _Ki = .3;
-  const float _Kd = .3;
+  float _Kp;
+  float _Ki;
+  float _Kd;
 
   short _last_target_rpm;
   short _last_error;

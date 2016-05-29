@@ -1,17 +1,39 @@
 #include "TPS.h"
 
+#include "EEPROM_Defs.h"
+
 #include <Arduino.h>
+#include <EEPROM.h>
 
 #define PIN_TPS A0
 
 #define TPS_SAMPLING_MS 100
-#define TPS_VALUE_CLOSED 520.
 
-TPS::TPS() : _next_sample_ms( 0 ), _value( 0 ), _value_average( 3 )
+#define TPS_DT_MAX 10.
+
+#define TPS_JITTER 1.
+#define TPS_JITTER_COUNTER  ( 1000. / TPS_SAMPLING_MS ) / 2
+#define TPS_JITTER_COUNTER_MAX  ( TPS_JITTER_COUNTER + ( ( 1000. / TPS_SAMPLING_MS ) / 3 ) )
+
+TPS::TPS( ECU& anECU ) : _ecu( anECU ), _next_sample_ms( 0 ), _value( 0 ), _value_closed( 0 ), _value_jitter_counter( 0 )
 {
+  EEPROM.get( ECU_TPS_CLOSED_MV, _value_closed );
+
+  if( !_value_closed )
+  {
+    _value_closed = 530;
+  }
+  else
+  {
+    _value_closed += TPS_DT_MAX;
+  }
+  
   pinMode( PIN_TPS, INPUT );
-  //pinMode( A1, INPUT );
-  //analogReference( EXTERNAL );
+}
+
+TPS::~TPS()
+{
+  EEPROM.put( ECU_TPS_CLOSED_MV, _value_closed );
 }
 
 void TPS::read( unsigned long aNow_MS )
@@ -20,10 +42,41 @@ void TPS::read( unsigned long aNow_MS )
   {
     _next_sample_ms = ( aNow_MS + TPS_SAMPLING_MS );
 
-    _value_average.push( analogRead( PIN_TPS ) / 1023. * 5000. /*read_Vcc()*/ );
-    _value = _value_average.average();
+    _value_last = _value;
 
-    _isOpen = ( _value > TPS_VALUE_CLOSED );
+    _value = analogRead( PIN_TPS ) / 1023. * 5000.;
+
+    if( _value > 400 && _value < 600 )
+    {
+      if( abs( _value - _value_last ) < TPS_JITTER )
+      {
+        if( _value_jitter_counter < TPS_JITTER_COUNTER_MAX )
+        {
+          ++_value_jitter_counter;
+        }
+      }
+      else
+      {
+        _value_jitter_counter = 0;
+      }
+  
+      if( _value_jitter_counter >= TPS_JITTER_COUNTER )
+      {
+        if( _value < _value_closed )
+        {
+          --_value_closed;// = ( _value_closed + _value ) / 2.;
+        }
+        else if( _value > _value_closed )
+        {
+          if( _value_jitter_counter < TPS_JITTER_COUNTER_MAX )
+          {
+            ++_value_closed;// = ( _value_closed + _value ) / 2.;
+          }
+        }
+      }
+    }
+
+    _isOpen = ( _value > ( _value_closed + 6 ) );
   }
 }
 

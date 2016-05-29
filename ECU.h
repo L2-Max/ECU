@@ -65,7 +65,8 @@ struct ECU
   unsigned char _rpm_zero_counter;
   unsigned char _periods_on_zero_counter;
 
-  unsigned short _last_idle_steps;
+  long _last_idle_position;
+  
   unsigned long _next_sample_ms;
 
   uint64_t _total_periods_on;

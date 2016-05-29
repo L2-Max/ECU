@@ -5,26 +5,26 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-#define IAC_MAX_STEPS 5000.
+#define IAC_MAX_STEPS 6000.
 
 #define IAC_CONTROL_MS 200.
 
-#define IAC_ERROR_MAX 50
+#define IAC_ERROR_MAX 200
 #define IAC_I_MAX 50
-#define IAC_D_MAX 50
+#define IAC_D_MAX 200
 
 #define IAC_START_POS 2500
-#define IAC_SPEED 700
+#define IAC_SPEED 1000
 
 IAC::IAC( ECU& anECU ) :
   _ecu( anECU ), _next_control_ms( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
   _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 12, 10, 11, 8 ),
-  _state( sReady ), _is_Enabled( false )
+  _state( sReady ), _is_Enabled( false ), _Kp( 1. ), _Ki( .0 ), _Kd( .3 )
 {
   _stepper.setMaxSpeed( 1000. );
   _stepper.setAcceleration( 1000. );
 
-  _stepper.setCurrentPosition( IAC_START_POS );
+  _stepper.setCurrentPosition( 0 );
 }
 
 IAC::~IAC()
@@ -33,29 +33,12 @@ IAC::~IAC()
 
 void IAC::step( short aSteps )
 {
-  if( ( _stepper.currentPosition() + aSteps ) > IAC_MAX_STEPS )
-  {
-    _stepper.move( IAC_MAX_STEPS - _stepper.currentPosition() );
-  }
-  else if( ( _stepper.currentPosition() + aSteps ) < 0 )
-  {
-    _stepper.move( -_stepper.currentPosition() );
-  }
-  else
-  {
-    _stepper.move( aSteps );
-  }
-  
+  _stepper.move( aSteps );
   _stepper.setSpeed( IAC_SPEED );
 }
 
 void IAC::stepTo( unsigned short aSteps )
 {
-  if( aSteps > IAC_MAX_STEPS )
-  {
-    aSteps = IAC_MAX_STEPS;
-  }
-
   _stepper.moveTo( aSteps );
   _stepper.setSpeed( IAC_SPEED );
 }
@@ -118,12 +101,12 @@ void IAC::run()
     {
       _state = sSetting;
 
-      _stepper.setCurrentPosition( 0 );
-      
-      step( IAC_START_POS );
+      step( -( IAC_MAX_STEPS - IAC_START_POS ) );
     }
     else if( _state == sSetting )
     {
+      _stepper.setCurrentPosition( 0 );
+      
       _state = sReady;
     }
   }
@@ -135,15 +118,13 @@ void IAC::run()
 
 void IAC::reset()
 {
-  _state = sResetting;
-
 #ifdef ECU_SYSTEM_RESET
-  _stepper.move( -IAC_MAX_STEPS );
+  _state = sResetting;
+  step( IAC_MAX_STEPS );
 #else
-  _stepper.move( -_stepper.currentPosition() - 200 );
+  _state = sSetting;
+  step( 500 );
 #endif
-
-  _stepper.setSpeed( IAC_SPEED );
 }
 
 void IAC::Set_Enabled( bool anEnabled )
