@@ -7,12 +7,12 @@
 
 #define PIN_TPS A0
 
-#define TPS_SAMPLING_MS 100
+#define TPS_SAMPLING_MS 50
 
 #define TPS_DT_MAX 10.
 
-#define TPS_JITTER 1.
-#define TPS_JITTER_COUNTER  ( 1000. / TPS_SAMPLING_MS ) / 2
+#define TPS_JITTER 3.
+#define TPS_JITTER_COUNTER  ( 1000. / TPS_SAMPLING_MS )
 #define TPS_JITTER_COUNTER_MAX  ( TPS_JITTER_COUNTER + ( ( 1000. / TPS_SAMPLING_MS ) / 3 ) )
 
 TPS::TPS( ECU& anECU ) : _ecu( anECU ), _next_sample_ms( 0 ), _value( 0 ), _value_closed( 0 ), _value_jitter_counter( 0 )
@@ -48,7 +48,7 @@ void TPS::read( unsigned long aNow_MS )
 
     if( _value > 400 && _value < 600 )
     {
-      if( abs( _value - _value_last ) < TPS_JITTER )
+      if( abs( _value - _value_last ) <= TPS_JITTER )
       {
         if( _value_jitter_counter < TPS_JITTER_COUNTER_MAX )
         {
@@ -76,7 +76,7 @@ void TPS::read( unsigned long aNow_MS )
       }
     }
 
-    _isOpen = ( _value > ( _value_closed + 6 ) );
+    _isOpen = ( _value > ( _value_closed + 10 ) );
   }
 }
 

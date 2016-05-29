@@ -37,7 +37,7 @@ void IAC::step( short aSteps )
   _stepper.setSpeed( IAC_SPEED );
 }
 
-void IAC::stepTo( unsigned short aSteps )
+void IAC::stepTo( short aSteps )
 {
   _stepper.moveTo( aSteps );
   _stepper.setSpeed( IAC_SPEED );
@@ -123,7 +123,7 @@ void IAC::reset()
   step( IAC_MAX_STEPS );
 #else
   _state = sSetting;
-  step( 500 );
+  step( 1000 );
 #endif
 }
 

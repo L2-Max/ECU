@@ -116,71 +116,6 @@ void loop()
     {
       g_NextMS = ( theNow + DISPLAY_INTERVAL_MS - ( theNow - g_NextMS ) );
       g_LastMS = millis();
-      
-      Serial.println();
-      
-      Serial.print( F( "c" ) );
-      Serial.print( float( I_cycle ) / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
-
-      Serial.print( F( "\te" ) );
-      Serial.print( g_ECU->_iac._last_error );
-      
-      Serial.print( F( "\ti" ) );
-      Serial.print( g_ECU->_iac._integral );
-
-      Serial.print( F( "\td" ) );
-      Serial.print( g_ECU->_iac._derivative );
-
-      Serial.print( F( "\tr_m" ) );
-      Serial.print( g_ECU->_rpm_max );
-
-      Serial.println();
-      
-      Serial.print( F( "r" ) );
-      Serial.print( g_ECU->_rpm );
-
-      Serial.print( F( "\tt" ) );
-      Serial.print( g_ECU->_rpm_target );
-
-      Serial.print( F( "\tp" ) );
-      Serial.print( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
-
-      Serial.print( F( "\ts" ) );
-      Serial.print( g_ECU->_state );
-
-      Serial.println();
-
-      Serial.print( F( "pw" ) );
-      Serial.print( g_ECU->_periods_on_average.average() );
-
-      Serial.print( F( "\tlh" ) );
-      Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
-
-      Serial.print( F( "\tlt" ) );
-      Serial.print( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
-      
-      Serial.println();
-
-      Serial.print( F( "tps" ) );
-      Serial.print( g_ECU->_tps._value );
-
-      Serial.print( F( "\ttps_c" ) );
-      Serial.print( g_ECU->_tps._value_closed );
-
-      Serial.print( F( "\ttps_s " ) );
-      Serial.print( g_ECU->_tps._isOpen );
-
-      Serial.print( F( "\tect" ) );
-      Serial.print( g_ECU->_ect._temperature );
-
-      Serial.print( F( "\tmap" ) );
-      Serial.print( g_ECU->_map._pressure );
-
-      Serial.print( F( "\ts" ) );
-      Serial.print( g_ECU->_vss._speed );
-
-      Serial.print( F( "\tkm" ) );
-      Serial.println( g_ECU->_vss._meters / 1000., 3 );
 
       if( Serial.available() )
       {
@@ -201,15 +136,98 @@ void loop()
           g_ECU->_iac._Kd = theVal;
         }
       }
+      
+      Serial.println();
 
-      Serial.print( "Kp" );
+      Serial.print( F( "SYS" ) );
+      
+      Serial.print( F( "\tCLK " ) );
+      Serial.println( float( I_cycle ) / ( DISPLAY_INTERVAL_MS - g_Display_MS ) );
+
+      Serial.print( F( "ECU" ) );
+      
+      Serial.print( F( "\tRPM " ) );
+      Serial.print( g_ECU->_rpm );
+
+      Serial.print( F( "\tRPM_TRGT " ) );
+      Serial.print( g_ECU->_rpm_target );
+
+      Serial.print( F( "\tSTATE " ) );
+      Serial.print( g_ECU->_state );
+
+      Serial.print( F( "\tRPM_MAX " ) );
+      Serial.println( g_ECU->_rpm_max );
+
+      Serial.print( F( "\tI_LP " ) );
+      Serial.print( g_ECU->_last_idle_position );
+
+      Serial.print( F( "\tI_TMR " ) );
+      Serial.println( g_ECU->_idle_timer );
+      
+      Serial.print( F( "INJ" ) );
+
+      Serial.print( F( "\tPOA " ) );
+      Serial.println( g_ECU->_periods_on_average.average() );
+
+      Serial.print( F( "IAC" ) );
+      
+      Serial.print( "\tKp " );
       Serial.print( g_ECU->_iac._Kp );
 
-      Serial.print( " Ki" );
+      Serial.print( "\tKi " );
       Serial.print( g_ECU->_iac._Ki );
 
-      Serial.print( " Kd" );
+      Serial.print( "\tKd " );
       Serial.println( g_ECU->_iac._Kd );
+      
+      Serial.print( F( "\tE " ) );
+      Serial.print( g_ECU->_iac._last_error );
+      
+      Serial.print( F( "\tI " ) );
+      Serial.print( g_ECU->_iac._integral );
+
+      Serial.print( F( "\tD " ) );
+      Serial.println( g_ECU->_iac._derivative );
+
+      Serial.print( F( "\tPOS " ) );
+      Serial.println( static_cast< short >( g_ECU->_iac._stepper.currentPosition() ) );
+
+      Serial.print( F( "TPS" ) );
+
+      Serial.print( F( "\tV " ) );
+      Serial.print( g_ECU->_tps._value );
+
+      Serial.print( F( "\tV_C " ) );
+      Serial.print( g_ECU->_tps._value_closed );
+
+      Serial.print( F( "\tSTATE " ) );
+      Serial.println( g_ECU->_tps._isOpen );
+
+      Serial.print( F( "ECT" ) );
+
+      Serial.print( F( "\tTEMP " ) );
+      Serial.println( g_ECU->_ect._temperature );
+
+      Serial.print( F( "MAP" ) );
+      
+      Serial.print( F( "\tP " ) );
+      Serial.println( g_ECU->_map._pressure );
+
+      Serial.print( F( "VSS" ) );
+
+      Serial.print( F( "\tSPEED " ) );
+      Serial.print( g_ECU->_vss._speed );
+
+      Serial.print( F( "\tKM " ) );
+      Serial.println( g_ECU->_vss._meters / 1000., 3 );
+      
+      Serial.print( F( "FLOW" ) );
+      
+      Serial.print( F( "\tL/H " ) );
+      Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
+
+      Serial.print( F( "\tL_TOT " ) );
+      Serial.println( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
 
       /////////////////////////////////////////////////////////
       /*g_lcd.home();
@@ -251,9 +269,9 @@ void loop()
 
 ECU::ECU() :
   _iac( *this ), _injector( *this ), _tps( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _next_sample_ms( 0 ),
-  _rpm_average( 5 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
+  _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
   _last_idle_position( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
-  _rpm_max( 0 ), _total_periods_on( 0 )
+  _rpm_max( 0 ), _total_periods_on( 0 ), _idle_timer( 0 )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
@@ -352,15 +370,22 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 12 )
+    if( !_tps._isOpen && _vss._speed < 10 )
     {
       _state = sIdling;
 
-      _iac.Set_Enabled( true );
-
-      if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
+      if( !_idle_timer )
       {
-        _last_idle_position = _iac._stepper.currentPosition();
+        _iac.Set_Enabled( true );
+  
+        if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
+        {
+          _last_idle_position = _iac._stepper.currentPosition();
+        }
+      }
+      else
+      {
+        --_idle_timer;
       }
     }
     else
@@ -372,9 +397,11 @@ void ECU::engine_idling()
 
     if( _state == sRunning )
     {
+      _idle_timer = ( 2000. / ECU_SAMPLING_MS );
+      
       if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
       {
-        _iac.stepTo( _last_idle_position + 1000 );
+        _iac.stepTo( _last_idle_position + 500 );
       }
       else
       {
