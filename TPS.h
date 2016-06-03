@@ -18,10 +18,10 @@ struct TPS
   ECU& _ecu;
 
   bool _isOpen;
+  bool _isPartOpen;
 
   Average< unsigned short > _value_average;
   
-  short _value;
   short _value_last;
   short _value_closed;
   short _value_jitter_counter;

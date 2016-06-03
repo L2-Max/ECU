@@ -2,7 +2,7 @@
 
 #include "EEPROM_Defs.h"
 
-//#include <LiquidCrystal_I2C.h>
+#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
 #define ECU_SAMPLING_MS 50
@@ -11,13 +11,13 @@
 
 #define ECU_POWER_PIN 4
 
-//LiquidCrystal_I2C g_lcd( 0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
+LiquidCrystal_I2C g_lcd( 0x3f, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
 
 ECU* g_ECU( 0 );
 
 void setup()
 {
-  Serial.begin( 250000 );
+  Serial.begin( 115200 );
 
 #ifdef ECU_SYSTEM_RESET
   for( int i( 0 ); i < EEPROM.length() ; i++ )
@@ -26,7 +26,7 @@ void setup()
   }
 #endif
   
-  /*g_lcd.begin(16,2);
+  g_lcd.begin(16,2);
   g_lcd.home ();
   g_lcd.print( "   Hello!" ); 
   
@@ -34,15 +34,13 @@ void setup()
 
   g_lcd.print( "     l2ECU" );
 
-  delay( 2000 );
+  delay( 200000 );
 
   g_lcd.home();
-  g_lcd.clear();*/
+  g_lcd.clear();
 
   pinMode( 8, OUTPUT );
   digitalWrite( 8, LOW );
-
-  pinMode( 5, OUTPUT );
 }
 
 unsigned long g_LastMS( 0 );
@@ -51,51 +49,6 @@ unsigned long g_NextMS( 0 );
 unsigned long g_Display_MS( 0 );
 
 bool g_Reset( false );
-
-void simulator()
-{
-  static int g_PinState( HIGH );
-  static volatile unsigned long g_NextHIGH( 0 );
-  static volatile unsigned long g_HIGHCount( 0 );
-
-  static unsigned long g_Stimer( 1000 );
-  static unsigned long g_Delay( 1000000. / ( 1000. / 60. / 2. ) );
-  static unsigned short g_Off_Delay( 200 );
-  
-  unsigned long theNow( micros() );
-
-  if( g_Off_Delay )
-  {
-    if( g_PinState == LOW && ( theNow - g_NextHIGH ) >= g_Delay )
-    {
-      if( g_Stimer )
-      {
-        if( !--g_Stimer )
-        {
-          g_Delay = 1000000. / ( 1000. / 60. / 2. );
-        }
-      }
-      else
-      {
-        --g_Off_Delay;
-      }
-
-      g_NextHIGH = theNow;
-      
-      ++g_HIGHCount;
-      
-      g_PinState = HIGH;
-      
-      digitalWrite( 5, g_PinState );
-    }
-    else if( g_PinState == HIGH && ( theNow - g_NextHIGH ) >= ( g_Delay - 1000 ) )
-    {
-      g_PinState = LOW;
-      
-      digitalWrite( 5, g_PinState );
-    }
-  }
-}
 
 void loop()
 {
@@ -106,8 +59,6 @@ void loop()
   
   for( uint32_t I_cycle( 0 ); !g_Reset ; ++I_cycle )
   {
-    //simulator();
-    
     unsigned long theNow( millis() );
 
     g_ECU->run( theNow );
@@ -195,9 +146,6 @@ void loop()
       Serial.print( F( "TPS" ) );
 
       Serial.print( F( "\tV " ) );
-      Serial.print( g_ECU->_tps._value );
-
-      Serial.print( F( "\tV_A " ) );
       Serial.print( g_ECU->_tps._value_average.average() );
 
       Serial.print( F( "\tV_C " ) );
@@ -387,7 +335,7 @@ void ECU::engine_idling()
       {
         _iac.Set_Enabled( true );
   
-        if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
+        //if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
         {
           _last_idle_position = _iac._stepper.currentPosition();
         }
@@ -406,15 +354,18 @@ void ECU::engine_idling()
 
     if( _state == sRunning )
     {
-      _idle_timer = ( 2000. / ECU_SAMPLING_MS );
-      
-      if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
+      if( _tps._isPartOpen || _vss._speed > 10 )
       {
-        _iac.stepTo( _last_idle_position + 300 );
-      }
-      else
-      {
-        _iac.stepTo( _last_idle_position );
+        _idle_timer = ( 2000. / ECU_SAMPLING_MS );
+
+        if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
+        {
+          _iac.stepTo( _last_idle_position + 100 );
+        }
+        else
+        {
+          _iac.stepTo( _last_idle_position + 100 );
+        }
       }
     }
   }
