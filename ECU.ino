@@ -34,7 +34,7 @@ void setup()
 
   g_lcd.print( "     l2ECU" );
 
-  delay( 200000 );
+  delay( 2000 );
 
   g_lcd.home();
   g_lcd.clear();
