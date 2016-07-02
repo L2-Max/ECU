@@ -9,17 +9,18 @@
 
 #define IAC_CONTROL_MS 200.
 
-#define IAC_ERROR_MAX 200
+#define IAC_ERROR_MAX 50
 #define IAC_I_MAX 50
-#define IAC_D_MAX 200
+#define IAC_D_MAX 50
 
 #define IAC_START_POS 2500
-#define IAC_SPEED 1000
+#define IAC_SPEED 700
 
 IAC::IAC( ECU& anECU ) :
   _ecu( anECU ), _next_control_ms( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
   _last_target_rpm( 0 ), _stepper( AccelStepper::HALF4WIRE, 12, 10, 11, 8 ),
-  _state( sReady ), _is_Enabled( false ), _Kp( 1. ), _Ki( .0 ), _Kd( .3 )
+  _state( sReady ), _is_Enabled( false ), _Kp( .7 ), _Ki( .1 ), _Kd( .3 ),
+  _down_timer( 0 ), _error_average( 1000. / IAC_CONTROL_MS )
 {
   _stepper.setMaxSpeed( 1000. );
   _stepper.setAcceleration( 1000. );
@@ -64,8 +65,10 @@ void IAC::control_RPM( unsigned long aNow_MS )
           theError = -IAC_ERROR_MAX;
         }
 
-        _integral += theError * ( IAC_CONTROL_MS / 1000. );
-        _derivative = ( theError - _last_error ) / ( IAC_CONTROL_MS / 1000. );
+        _error_average.push( theError );
+
+        _integral += _error_average.average() * ( IAC_CONTROL_MS / 1000. );
+        _derivative = ( _error_average.average() - _last_error ) / ( IAC_CONTROL_MS / 1000. );
 
         if( _integral > IAC_I_MAX )
         {
@@ -85,9 +88,24 @@ void IAC::control_RPM( unsigned long aNow_MS )
           _derivative = -IAC_D_MAX;
         }
 
-        step( _Kp * theError + _Ki * _integral + _Kd * _derivative );
-
-        _last_error = theError;
+        if( _error_average.average() < 0 )
+        {
+          if( _down_timer )
+          {
+            --_down_timer;
+          }
+        }
+        else
+        {
+          _down_timer = ( 10000. / IAC_CONTROL_MS );
+        }
+        
+        if( !_down_timer || _error_average.average() >= 0 )
+        {
+          step( _Kp * _error_average.average() + _Ki * _integral + _Kd * _derivative );
+        }
+        
+        _last_error = _error_average.average();
       }
     }
   }

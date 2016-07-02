@@ -2,7 +2,7 @@
 
 #include "EEPROM_Defs.h"
 
-#include <LiquidCrystal_I2C.h>
+//#include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
 #define ECU_SAMPLING_MS 50
@@ -11,13 +11,13 @@
 
 #define ECU_POWER_PIN 4
 
-LiquidCrystal_I2C g_lcd( 0x3f, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
+//LiquidCrystal_I2C g_lcd( 0x3f, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE );
 
 ECU* g_ECU( 0 );
 
 void setup()
 {
-  Serial.begin( 115200 );
+  Serial.begin( 250000 );
 
 #ifdef ECU_SYSTEM_RESET
   for( int i( 0 ); i < EEPROM.length() ; i++ )
@@ -26,7 +26,7 @@ void setup()
   }
 #endif
   
-  g_lcd.begin(16,2);
+  /*g_lcd.begin(16,2);
   g_lcd.home ();
   g_lcd.print( "   Hello!" ); 
   
@@ -37,7 +37,7 @@ void setup()
   delay( 2000 );
 
   g_lcd.home();
-  g_lcd.clear();
+  g_lcd.clear();*/
 
   pinMode( 8, OUTPUT );
   digitalWrite( 8, LOW );
@@ -297,7 +297,7 @@ void ECU::init()
   
   if( _iac._state == IAC::sReady )
   {
-    _state_handler = &ECU::wait_for_engine_starting;
+    _state_handler = &ECU::engine_cranking;
   }
 }
 
@@ -311,9 +311,9 @@ void ECU::uninit()
   }
 }
 
-void ECU::wait_for_engine_starting()
+void ECU::engine_cranking()
 {
-  _state = sWforEstarting;
+  _state = sCranking;
   
   if( _rpm > 500 )
   {
@@ -327,7 +327,7 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 10 )
+    if( !_tps._isOpen && _vss._speed < 5 )
     {
       _state = sIdling;
 
@@ -347,26 +347,13 @@ void ECU::engine_idling()
     }
     else
     {
-      _state = sRunning;
+      _state = sLoad;
 
       _iac.Set_Enabled( false );
-    }
 
-    if( _state == sRunning )
-    {
-      if( _tps._isPartOpen || _vss._speed > 10 )
-      {
-        _idle_timer = ( 2000. / ECU_SAMPLING_MS );
+      //_iac.stepTo( _last_idle_position + 100 );
 
-        if( _rpm < ( ECU_RPM_IDLE + 1000 ) )
-        {
-          _iac.stepTo( _last_idle_position + 100 );
-        }
-        else
-        {
-          _iac.stepTo( _last_idle_position + 100 );
-        }
-      }
+      _idle_timer = ( 3000. / ECU_SAMPLING_MS );
     }
   }
   else
@@ -379,13 +366,18 @@ void ECU::engine_idling()
 
 void ECU::calculate_target_RPM( unsigned long aNow )
 {
-  if( _ect._temperature > 35 )
+  if( _ect._temperature > 30 )
   {
     _rpm_target = ECU_RPM_IDLE;
+
+    /*if( !_tps._isOpen && _tps._value_average.average() > _tps._value_closed )
+    {
+      _rpm_target += 400. * ( ( _tps._value_average.average() - _tps._value_closed ) / 30. );
+    }*/
   }
   else if( _ect._temperature > 0 )
   {
-    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 46.6 * _ect._temperature ) );
+    _rpm_target = ( ECU_RPM_WARMUP - ( ( ECU_RPM_WARMUP - ECU_RPM_IDLE ) / 40 * _ect._temperature ) );
   }
   else
   {

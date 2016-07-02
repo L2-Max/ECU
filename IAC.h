@@ -1,6 +1,8 @@
 #ifndef __IAC_H__
 #define __IAC_H__
 
+#include "Average.h"
+
 #include <AccelStepper.h>
 //#include <Stepper.h>
 
@@ -46,6 +48,10 @@ struct IAC
   unsigned long _next_control_ms;
 
   bool _is_Enabled;
+
+  uint16_t _down_timer;
+
+  Average< short > _error_average;
 };
 
 #endif

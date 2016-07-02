@@ -6,26 +6,28 @@
 
 #define PIN_TPS A0
 
-#define TPS_SAMPLING_MS 50
+#define TPS_SAMPLING_MS 10
 
-#define TPS_JITTER 5.
-#define TPS_JITTER_COUNTER  ( 1000. / TPS_SAMPLING_MS ) / 2
-#define TPS_JITTER_COUNTER_MAX  ( TPS_JITTER_COUNTER + ( ( 1000. / TPS_SAMPLING_MS ) / 10 ) )
+#define TPS_JITTER 20.
+#define TPS_JITTER_COUNTER  ( 1000. / TPS_SAMPLING_MS )
+#define TPS_JITTER_COUNTER_MAX  ( TPS_JITTER_COUNTER + ( 1000. / TPS_SAMPLING_MS ) )
 
 TPS::TPS( ECU& anECU ) :
-  _ecu( anECU ), _next_sample_ms( 0 ), _value_closed( 0 ), _value_jitter_counter( 0 ), _value_average( 1 ),//500. / TPS_SAMPLING_MS ),
-  _counter_close( 0 ), _counter_open( 0 ), _isOpen( false ), _isPartOpen( false )
+  _ecu( anECU ), _next_sample_ms( 0 ), _value_closed( 0 ), _value_jitter_counter( 0 ), _value_average( 100. / TPS_SAMPLING_MS ),
+  _counter_close( 0 ), _counter_open( 0 ), _isOpen( false )
 {
   EEPROM.get( ECU_TPS_CLOSED_MV, _value_closed );
 
   if( !_value_closed )
   {
-    _value_closed = 530;
+    _value_closed = 600;
   }
   else
   {
-    _value_closed += 20.;
+    _value_closed += 30;
   }
+
+  _value_closed = 503;
   
   pinMode( PIN_TPS, INPUT );
 }
@@ -41,9 +43,9 @@ void TPS::read( unsigned long aNow_MS )
   {
     _next_sample_ms = ( aNow_MS + TPS_SAMPLING_MS );
 
-    _value_last = _value_average.average();
+    _value_last = analogRead( PIN_TPS ) / 1023. * 5000.;
 
-    _value_average.push( analogRead( PIN_TPS ) / 1023. * 5000. );
+    _value_average.push( _value_last );
     //_value_average.push( 350. + analogRead( PIN_TPS ) / 1023. * 350. + rand() % 15 );
 
     if( _value_average.average() > 400 && _value_average.average() < 600 )
@@ -64,20 +66,19 @@ void TPS::read( unsigned long aNow_MS )
       {
         if( _value_average.average() < _value_closed )
         {
-          _value_closed = _value_average.average();
+          //--_value_closed;
         }
         else if( _value_average.average() > _value_closed )
         {
           if( _value_jitter_counter < TPS_JITTER_COUNTER_MAX )
           {
-            ++_value_closed;
+            //++_value_closed;
           }
         }
       }
     }
 
-    _isOpen = ( _value_average.average() > ( _value_closed ) );
-    _isPartOpen = ( _value_average.average() > ( _value_closed + 15 ) );
+    _isOpen = ( _value_average.average() > ( _value_closed + 10. ) );
 
     if( _isOpen )
     {

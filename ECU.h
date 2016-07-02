@@ -18,9 +18,9 @@ struct ECU
   {
     sInit,
     sUninit,
-    sWforEstarting,
+    sCranking,
     sIdling,
-    sRunning,
+    sLoad,
     sResetting
   };
   
@@ -51,8 +51,7 @@ struct ECU
   void init();
   void uninit();
 
-  void wait_for_engine_starting();
-
+  void engine_cranking();
   void engine_idling();
 
   Average< unsigned short > _rpm_average;

@@ -18,9 +18,8 @@ struct TPS
   ECU& _ecu;
 
   bool _isOpen;
-  bool _isPartOpen;
 
-  Average< unsigned short > _value_average;
+  Average< short > _value_average;
   
   short _value_last;
   short _value_closed;
