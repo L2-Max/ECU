@@ -358,7 +358,7 @@ void ECU::engine_idling()
 
       if( _vss._speed >= 10 && _is_IdleSet )
       {
-        _iac.stepTo( _last_idle_position + 100 );
+        _iac.stepTo( _last_idle_position + 300 );
       }
     }
   }

@@ -51,7 +51,7 @@ struct IAC
 
   uint16_t _down_timer;
 
-  Average< short > _error_average;
+  //Average< short > _error_average;
 };
 
 #endif
