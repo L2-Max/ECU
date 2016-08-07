@@ -14,7 +14,7 @@
 #define IAC_D_MAX 50
 
 #define IAC_START_POS 2500
-#define IAC_SPEED 700
+#define IAC_SPEED 600
 
 IAC::IAC( ECU& anECU ) :
   _ecu( anECU ), _next_control_ms( 0 ), _last_error( 0 ), _integral( 0 ), _derivative( 0 ),
@@ -147,6 +147,11 @@ void IAC::reset()
 
 void IAC::Set_Enabled( bool anEnabled )
 {
+  if( _is_Enabled && !anEnabled )
+  {
+    _stepper.stop();
+  }
+  
   _is_Enabled = anEnabled;
 }
 

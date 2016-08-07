@@ -110,11 +110,8 @@ void loop()
       Serial.println( g_ECU->_rpm_max );
 
       Serial.print( F( "\tI_LP " ) );
-      Serial.print( g_ECU->_last_idle_position );
+      Serial.println( g_ECU->_last_idle_position );
 
-      Serial.print( F( "\tI_TMR " ) );
-      Serial.println( g_ECU->_idle_timer );
-      
       Serial.print( F( "INJ" ) );
 
       Serial.print( F( "\tPOA " ) );
@@ -183,8 +180,19 @@ void loop()
       Serial.print( F( "\tL/H " ) );
       Serial.print( float( g_ECU->_periods_on_average.average() * g_ECU->_rpm * 2 ) * .000000123, 3 );
 
-      Serial.print( F( "\tL_TOT " ) );
-      Serial.println( float( g_ECU->_total_periods_on * 4 ) * ( .000000123 / 60. ), 3 );
+      Serial.print( F( "\tL_IDLE " ) );
+      Serial.print( float( g_ECU->_total_periods_on_idle * 4 ) * ( .000000123 / 60. ), 3 );
+
+      Serial.print( F( "\tL_RUN " ) );
+      Serial.print( float( g_ECU->_total_periods_on_run * 4 ) * ( .000000123 / 60. ), 3 );
+
+      Serial.print( F( "\tL_100KM_RUN " ) );
+      Serial.print( float( g_ECU->_total_periods_on_run * 4 ) * ( .000000123 / 60. ) /
+                         ( g_ECU->_vss._meters / 100000. ), 3 );
+
+      Serial.print( F( "\tL_100KM_TOT " ) );
+      Serial.println( float( ( g_ECU->_total_periods_on_run + g_ECU->_total_periods_on_idle ) * 4 ) * ( .000000123 / 60. ) /
+                           ( g_ECU->_vss._meters / 100000. ), 3 );
 
       /////////////////////////////////////////////////////////
       /*g_lcd.home();
@@ -228,7 +236,7 @@ ECU::ECU() :
   _iac( *this ), _injector( *this ), _tps( *this ), _rpm( 0 ), _rpm_target( ECU_RPM_IDLE ), _next_sample_ms( 0 ),
   _rpm_average( 3 ), _state( sInit ), _rpm_zero_counter( 0 ), _state_handler( &ECU::init ),
   _last_idle_position( 0 ), _periods_on_average( 1 ), _periods_on_zero_counter( 0 ),
-  _rpm_max( 0 ), _total_periods_on( 0 ), _idle_timer( 0 )
+  _rpm_max( 0 ), _total_periods_on_idle( 0 ), _total_periods_on_run( 0 ), _is_IdleSet( false )
 {
   pinMode( ECU_POWER_PIN, OUTPUT );
   
@@ -239,13 +247,15 @@ ECU::ECU() :
   _iac.reset();
 #endif
 
-  EEPROM.get( ECU_MPG_TOTAL_ADDR, _total_periods_on );
+  EEPROM.get( ECU_MPG_IDLE_ADDR, _total_periods_on_idle );
+  EEPROM.get( ECU_MPG_RUN_ADDR, _total_periods_on_run );
   EEPROM.get( ECU_MAX_RPM, _rpm_max );
 }
 
 ECU::~ECU()
 {
-  EEPROM.put( ECU_MPG_TOTAL_ADDR, _total_periods_on );
+  EEPROM.put( ECU_MPG_IDLE_ADDR, _total_periods_on_idle );
+  EEPROM.put( ECU_MPG_RUN_ADDR, _total_periods_on_run );
   EEPROM.put( ECU_MAX_RPM, _rpm_max );
   
   digitalWrite( ECU_POWER_PIN, LOW );
@@ -327,22 +337,17 @@ void ECU::engine_idling()
 {
   if( _rpm )
   {
-    if( !_tps._isOpen && _vss._speed < 5 )
+    if( ( !_tps._isOpen && _vss._speed < 10 ) || _rpm < _rpm_target )
     {
       _state = sIdling;
 
-      if( !_idle_timer )
+      _iac.Set_Enabled( true );
+
+      if( _rpm > ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm < ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
       {
-        _iac.Set_Enabled( true );
-  
-        //if( _rpm >= ( _rpm_target - ECU_RPM_IDLE_TOLERANCE ) && _rpm <= ( _rpm_target + ECU_RPM_IDLE_TOLERANCE ) )
-        {
-          _last_idle_position = _iac._stepper.currentPosition();
-        }
-      }
-      else
-      {
-        --_idle_timer;
+        _last_idle_position = _iac._stepper.currentPosition();
+
+        _is_IdleSet = true;
       }
     }
     else
@@ -351,9 +356,10 @@ void ECU::engine_idling()
 
       _iac.Set_Enabled( false );
 
-      //_iac.stepTo( _last_idle_position + 100 );
-
-      _idle_timer = ( 3000. / ECU_SAMPLING_MS );
+      if( _vss._speed >= 10 && _is_IdleSet )
+      {
+        _iac.stepTo( _last_idle_position + 100 );
+      }
     }
   }
   else
@@ -430,8 +436,16 @@ void ECU::read_Fueling( unsigned long aNow )
   if( thePeriods._count )
   {
     _periods_on_average.push( float( thePeriods._usecs ) / thePeriods._count );
-    _total_periods_on += thePeriods._usecs;
 
+    if( _vss._speed )
+    {
+      _total_periods_on_run += thePeriods._usecs;
+    }
+    else
+    {
+      _total_periods_on_idle += thePeriods._usecs;
+    }
+    
     _periods_on_zero_counter = ( 1000 / ECU_SAMPLING_MS / 2 );
   }
   else

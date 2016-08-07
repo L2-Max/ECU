@@ -61,16 +61,16 @@ struct ECU
   short _rpm_target;
   unsigned short _rpm_max;
 
-  uint16_t _idle_timer;
-  
   unsigned char _rpm_zero_counter;
   unsigned char _periods_on_zero_counter;
 
   long _last_idle_position;
+  bool _is_IdleSet;
   
   unsigned long _next_sample_ms;
 
-  uint64_t _total_periods_on;
+  uint64_t _total_periods_on_idle;
+  uint64_t _total_periods_on_run;
 };
 
 #endif
