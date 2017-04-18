@@ -2,7 +2,6 @@
 
 #include "EEPROM_Defs.h"
 
-#include <EEPROM.h>
 #include <Arduino.h>
 
 #define VSS_SAMPLE_MS 250

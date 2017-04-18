@@ -2,8 +2,9 @@
 
 #include "ECU.h"
 
+#include "EEPROM_Defs.h"
+
 #include <Arduino.h>
-#include <EEPROM.h>
 
 #define IAC_MAX_STEPS 6000.
 

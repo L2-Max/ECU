@@ -3,7 +3,6 @@
 #include "EEPROM_Defs.h"
 
 //#include <LiquidCrystal_I2C.h>
-#include <EEPROM.h>
 
 #define ECU_SAMPLING_MS 50
 

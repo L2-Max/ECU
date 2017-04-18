@@ -2,8 +2,6 @@
 
 #include "EEPROM_Defs.h"
 
-#include <EEPROM.h>
-
 #define PIN_TPS A0
 
 #define TPS_SAMPLING_MS 10
@@ -93,7 +91,7 @@ void TPS::read( unsigned long aNow_MS )
 
 unsigned long TPS::read_Vcc()
 {
-  #if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+  /*#if defined(__AVR_ATmega32U4__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
     ADMUX = _BV(REFS0) | _BV(MUX4) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
   #elif defined (__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
     ADMUX = _BV(MUX5) | _BV(MUX0);
@@ -116,6 +114,7 @@ unsigned long TPS::read_Vcc()
 
   ret = ( 1125300L / ret );
   
-  return ret;
+  return ret;*/
+  return 0;
 }
   
